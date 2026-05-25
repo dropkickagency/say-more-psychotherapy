@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blog — Say More Psychotherapy</title>
+  <meta name="description" content="Notes from the practice — quiet reflections on therapy, identity, anxiety, and the small things that change a week." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Inter:wght@400;500&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ============ NAV ============ -->
+  <header class="nav">
+    <div class="wrap nav__inner">
+      <a href="index.html" class="brand" aria-label="Say More Psychotherapy — home">
+        <img src="logo.jpg" alt="Say More Psychotherapy" />
+      </a>
+      <nav class="nav__links">
+        <a href="index.html">Home</a>
+        <a href="about.html">About</a>
+        <div class="nav__item nav__item--has-dropdown">
+          <a href="services.html">Services <span class="nav__item__caret">⌄</span></a>
+          <div class="nav__dropdown">
+            <a href="services.html">Individual Therapy</a>
+            <a href="services.html">Anxiety Therapy</a>
+            <a href="services.html">Depression Counselling</a>
+            <a href="services.html">OCD Therapy</a>
+            <a href="services.html">Grief &amp; Loss</a>
+            <a href="services.html">Perinatal &amp; Postpartum</a>
+            <a href="services.html">Couples &amp; Relationships</a>
+            <a href="services.html">Immigrants &amp; Identity</a>
+            <a href="services.html">Virtual Therapy</a>
+          </div>
+        </div>
+        <a href="location.html">Location</a>
+        <a href="blog.html" class="is-active">Blog</a>
+      </nav>
+      <div class="nav__cta">
+        <a href="tel:+16479150231" class="nav__phone">
+          <span class="emo emo--sm">📞</span>
+          (647) 915-0231
+        </a>
+        <a href="consultation.html" class="btn btn--primary">Get Free Session</a>
+      </div>
+      <button class="nav__toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navMobile">
+        <span class="emo emo--lg">☰</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ MOBILE MENU ============ -->
+  <div class="nav__mobile" id="navMobile" aria-hidden="true">
+    <div class="nav__mobile__head">
+      <a href="index.html" class="brand"><img src="logo.jpg" alt="Say More Psychotherapy" /></a>
+      <button class="nav__mobile__close" id="navClose" aria-label="Close menu">
+        <span class="emo emo--lg">✕</span>
+      </button>
+    </div>
+    <nav class="nav__mobile__links">
+      <a href="index.html">Home</a>
+      <a href="services.html">Services</a>
+      <a href="about.html">About</a>
+      <a href="location.html">Location</a>
+      <a href="blog.html">Blog</a>
+    </nav>
+    <div class="nav__mobile__cta">
+      <a href="tel:+16479150231" class="nav__mobile__phone">
+        <span class="emo emo--sm">📞</span>
+        (647) 915-0231
+      </a>
+      <a href="consultation.html" class="btn btn--primary">Get Free Session</a>
+    </div>
+  </div>
+
+  <!-- ============ PAGE HERO ============ -->
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="page-hero__grid">
+        <div>
+          <span class="eyebrow" style="margin-bottom: var(--space-md);">
+            <span class="emo emo--md">📓</span>
+            Notes from the practice
+          </span>
+          <h1 style="margin-top: var(--space-md);">The <em class="italic">blog.</em></h1>
+        </div>
+        <p>Short, considered pieces on therapy, identity, parenting, anxiety, and the small things that change a week. Sent slowly. Never noisy.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BLOG POSTS ============ -->
+  <section class="section" style="padding-top: var(--space-md);">
+    <div class="wrap">
+      <div class="blog-grid">
+        <article class="blog-card">
+          <div class="img-box"></div>
+          <div class="blog-card__body">
+            <div class="blog-card__date">May 18, 2026 · 6 min read</div>
+            <h3>On the Pause Before Saying the Hard Thing.</h3>
+            <p class="blog-card__excerpt">The pause before the difficult sentence is doing more than we think. A short piece on naming the hesitation — and what it might be protecting.</p>
+            <div class="blog-card__foot">
+              <span>Paras Geramian</span>
+              <a href="#">Read note <span class="emo emo--sm">→</span></a>
+            </div>
+          </div>
+        </article>
+
+        <article class="blog-card">
+          <div class="img-box"></div>
+          <div class="blog-card__body">
+            <div class="blog-card__date">April 26, 2026 · 5 min read</div>
+            <h3>Between Cultures: The Quiet Cost of Translating Yourself.</h3>
+            <p class="blog-card__excerpt">On the silent labour of code-switching across languages, families, and selves — and what therapy can offer for the parts that don't translate.</p>
+            <div class="blog-card__foot">
+              <span>Paras Geramian</span>
+              <a href="#">Read note <span class="emo emo--sm">→</span></a>
+            </div>
+          </div>
+        </article>
+
+        <article class="blog-card">
+          <div class="img-box"></div>
+          <div class="blog-card__body">
+            <div class="blog-card__date">April 3, 2026 · 4 min read</div>
+            <h3>What Postpartum Asks of You, That No One Says Out Loud.</h3>
+            <p class="blog-card__excerpt">A gentle look at the postpartum experience beyond the brochures — the loneliness, the lost identity, and the small things that help.</p>
+            <div class="blog-card__foot">
+              <span>Paras Geramian</span>
+              <a href="#">Read note <span class="emo emo--sm">→</span></a>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section class="cta">
+    <div class="wrap">
+      <span class="eyebrow">
+        <span class="emo emo--md">💬</span>
+        While you wait
+      </span>
+      <h2 class="cta__title">Claim your <em>free session</em> today.</h2>
+      <ul class="cta__features">
+        <li><span class="emo">✓</span> No obligations</li>
+        <li><span class="emo">✓</span> 100% confidential</li>
+        <li><span class="emo">✓</span> Same-week availability</li>
+      </ul>
+      <div class="cta__actions">
+        <a href="consultation.html" class="btn btn--primary">
+          Get Free Session
+          <span class="arrow emo emo--sm">→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="foot">
+    <div class="wrap">
+      <div class="foot__top">
+        <div>
+          <a href="index.html" class="foot__logo" aria-label="Say More Psychotherapy — home">
+            <img src="logo.jpg" alt="Say More Psychotherapy" />
+          </a>
+          <h4>visit</h4>
+          <p>41 Edwin Drive<br/>Brampton, Ontario L6Y 1A2</p>
+          <p style="margin-top: var(--space-sm)"><a href="tel:+16479150231">(647) 915-0231</a></p>
+          <p><a href="mailto:hello@saymorepsychotherapy.ca">hello@saymorepsychotherapy.ca</a></p>
+        </div>
+        <div>
+          <h4>hours</h4>
+          <p>monday – friday<br/>9 a.m. — 5 p.m.</p>
+          <p style="margin-top: var(--space-sm)">saturday &amp; sunday<br/><em>closed</em></p>
+        </div>
+        <div>
+          <h4>around the site</h4>
+          <div class="foot__col">
+            <a href="about.html">about</a>
+            <a href="services.html">services</a>
+            <a href="location.html">location</a>
+            <a href="blog.html">blog</a>
+            <a href="consultation.html">free consultation</a>
+          </div>
+        </div>
+        <div>
+          <h4>stay quietly in touch</h4>
+          <p>An occasional note — never noisy. Unsubscribe anytime.</p>
+          <form class="foot__sub" onsubmit="event.preventDefault(); this.querySelector('button').textContent='thank you';">
+            <input type="email" placeholder="your email" required />
+            <button type="submit">subscribe</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="foot__wordmark">say<span class="dot"></span>more</div>
+
+      <div class="foot__bottom">
+        <div>© 2026 say more psychotherapy · established with care</div>
+        <div class="foot__bottom__links">
+          <a href="#">privacy</a>
+          <a href="#">crpo standards</a>
+          <a href="#">accessibility</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <a href="tel:+16479150231" class="call-widget" aria-label="Call Say More Psychotherapy">
+    <svg class="call-widget__icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.37 1.9.72 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0122 16.92z"/></svg>
+  </a>
+
+  <script src="script.js"></script>
+</body>
+</html>

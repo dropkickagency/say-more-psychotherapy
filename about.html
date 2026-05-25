@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About — Say More Psychotherapy</title>
+  <meta name="description" content="Compassionate, relational psychotherapy in Brampton and across Ontario with Paras Geramian, RP (Qualifying). Our mission, vision, services and approach." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Inter:wght@400;500&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ============ NAV ============ -->
+  <header class="nav">
+    <div class="wrap nav__inner">
+      <a href="index.html" class="brand" aria-label="Say More Psychotherapy — home">
+        <img src="logo.jpg" alt="Say More Psychotherapy" />
+      </a>
+      <nav class="nav__links">
+        <a href="index.html">Home</a>
+        <a href="about.html" class="is-active">About</a>
+        <div class="nav__item nav__item--has-dropdown">
+          <a href="services.html">Services <span class="nav__item__caret">⌄</span></a>
+          <div class="nav__dropdown">
+            <a href="services.html">Individual Therapy</a>
+            <a href="services.html">Anxiety Therapy</a>
+            <a href="services.html">Depression Counselling</a>
+            <a href="services.html">OCD Therapy</a>
+            <a href="services.html">Grief &amp; Loss</a>
+            <a href="services.html">Perinatal &amp; Postpartum</a>
+            <a href="services.html">Couples &amp; Relationships</a>
+            <a href="services.html">Immigrants &amp; Identity</a>
+            <a href="services.html">Virtual Therapy</a>
+          </div>
+        </div>
+        <a href="location.html">Location</a>
+        <a href="blog.html">Blog</a>
+      </nav>
+      <div class="nav__cta">
+        <a href="tel:+16479150231" class="nav__phone">
+          <span class="emo emo--sm">📞</span>
+          (647) 915-0231
+        </a>
+        <a href="consultation.html" class="btn btn--primary">Get Free Session</a>
+      </div>
+      <button class="nav__toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navMobile">
+        <span class="emo emo--lg">☰</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ MOBILE MENU ============ -->
+  <div class="nav__mobile" id="navMobile" aria-hidden="true">
+    <div class="nav__mobile__head">
+      <a href="index.html" class="brand"><img src="logo.jpg" alt="Say More Psychotherapy" /></a>
+      <button class="nav__mobile__close" id="navClose" aria-label="Close menu">
+        <span class="emo emo--lg">✕</span>
+      </button>
+    </div>
+    <nav class="nav__mobile__links">
+      <a href="index.html">Home</a>
+      <a href="services.html">Services</a>
+      <a href="about.html">About</a>
+      <a href="location.html">Location</a>
+      <a href="blog.html">Blog</a>
+    </nav>
+    <div class="nav__mobile__cta">
+      <a href="tel:+16479150231" class="nav__mobile__phone">
+        <span class="emo emo--sm">📞</span>
+        (647) 915-0231
+      </a>
+      <a href="consultation.html" class="btn btn--primary">Get Free Session</a>
+    </div>
+  </div>
+
+  <!-- ============ ABOUT US (combined hero + stats + image) ============ -->
+  <section class="page-hero about-hero">
+    <div class="wrap">
+      <div class="about-hero__grid">
+        <div class="about-hero__content">
+          <h1>Customized Plans For Your <em class="italic">Lifestyle.</em></h1>
+          <p class="about-hero__lead">We are committed to creating a safe and supportive environment where you can explore your thoughts and feelings, develop coping strategies, and find your own steadier way forward.</p>
+
+          <div class="stats__row about-hero__stats">
+            <div>
+              <div class="stat__num"><span class="stat__count" data-target="500">0</span>+</div>
+              <div class="stat__label">Sessions held with care</div>
+            </div>
+            <div>
+              <div class="stat__num"><span class="stat__count" data-target="100">0</span>%</div>
+              <div class="stat__label">Confidential &amp; CRPO-aligned</div>
+            </div>
+            <div>
+              <div class="stat__num"><span class="stat__count" data-target="15">0</span><span style="font-size:0.6em">min</span></div>
+              <div class="stat__label">Free intro consultation</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="about-hero__image has-real-image has-video">
+          <video src="paras%20geramian.mp4" autoplay muted loop playsinline controls preload="auto" aria-label="Portrait video of Paras Geramian, Registered Psychotherapist (Qualifying)"></video>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VISION / MISSION ============ -->
+  <section class="section vision">
+    <div class="wrap">
+      <div class="vision__grid">
+        <div>
+          <h2>Accessible <em class="italic">in person</em><br/>and <em class="italic">online.</em></h2>
+        </div>
+        <div>
+          <div class="vision__row">
+            <h4>Our Vision</h4>
+            <p>To be a trusted home for honest, unhurried psychotherapy — where people feel safe enough to say what hasn't been said, and meet themselves with more curiosity than judgement.</p>
+          </div>
+          <div class="vision__row">
+            <h4>Our Mission</h4>
+            <p>To support individuals across Ontario in achieving mental and emotional balance through tailored, trauma-informed therapy that meets you where you are — in person in Brampton or virtually anywhere in the province.</p>
+          </div>
+        </div>
+      </div>
+      <div class="vision__image has-video">
+        <video src="about%20us%20video.mp4" autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SERVICES OVERLAY CARDS ============ -->
+  <section class="section">
+    <div class="wrap">
+      <div class="reflections__head" style="text-align: center; margin-bottom: var(--space-xl);">
+        <span class="eyebrow" style="margin-left:auto; margin-right:auto;">
+          <span class="emo emo--md">🌿</span>
+          Services
+        </span>
+        <h2 style="margin-top: var(--space-md)">Mental Health <em class="italic">Services.</em></h2>
+        <p class="lead" style="margin: var(--space-md) auto 0;">A complete range of services to support mental well-being — therapy, consultations, and crisis support, working together to help you recover, regulate, and reconnect.</p>
+      </div>
+
+      <div class="service-overlay-grid">
+        <article class="service-overlay" style="background-image: url('individual%20therapy.png');">
+          <div class="service-overlay__body">
+            <h3>Individual Therapy</h3>
+            <p>Personalised one-to-one sessions with a licensed therapist to address your unique mental health needs.</p>
+          </div>
+        </article>
+        <article class="service-overlay" style="background-image: url('couples%20therapy%20%281%29.png');">
+          <div class="service-overlay__body">
+            <h3>Couples &amp; Relationships</h3>
+            <p>For conversations that keep looping and the ones you've been afraid to have. Interracial and intercultural couples welcome.</p>
+          </div>
+        </article>
+        <article class="service-overlay" style="background-image: url('virtual%20therapy.png');">
+          <div class="service-overlay__body">
+            <h3>Online Counselling</h3>
+            <p>Convenient, confidential virtual therapy sessions that you can attend from anywhere in Ontario.</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HEALING APPROACH (vertical timeline) ============ -->
+  <section class="section approach-dark">
+    <div class="wrap">
+      <div class="approach__grid">
+        <div class="approach__head">
+          <span class="eyebrow">
+            <span class="emo emo--md">⏰</span>
+            Work Process
+          </span>
+          <h2 style="margin-top: var(--space-md)">Our healing <em class="italic">approach.</em></h2>
+          <p>At Say More, we believe in a holistic and personalised approach to mental health care — one that moves at your pace, not the symptoms'.</p>
+        </div>
+
+        <div class="timeline">
+          <div class="timeline__step">
+            <div class="timeline__num">01</div>
+            <div class="timeline__text">
+              <h4>Initial Consultation</h4>
+              <p>A free 15-minute call to understand what you're carrying and what kind of support might fit.</p>
+            </div>
+          </div>
+          <div class="timeline__step">
+            <div class="timeline__num">02</div>
+            <div class="timeline__text">
+              <h4>Personalised Plan</h4>
+              <p>We shape the work around your story, your pace, and the modalities that suit you best.</p>
+            </div>
+          </div>
+          <div class="timeline__step">
+            <div class="timeline__num">03</div>
+            <div class="timeline__text">
+              <h4>Therapeutic Sessions</h4>
+              <p>Regular weekly or biweekly sessions, in person in Brampton or virtually anywhere in Ontario.</p>
+            </div>
+          </div>
+          <div class="timeline__step">
+            <div class="timeline__num">04</div>
+            <div class="timeline__text">
+              <h4>Progress Review</h4>
+              <p>We check in regularly to make sure the work is doing what it should — and adjust where it isn't.</p>
+            </div>
+          </div>
+          <div class="timeline__step">
+            <div class="timeline__num">05</div>
+            <div class="timeline__text">
+              <h4>Ongoing Support</h4>
+              <p>What's been said in the room becomes something you can carry into the week. We stay alongside as long as you need.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ REVIEWS ============ -->
+  <section class="section reflections">
+    <div class="wrap">
+      <div class="reflections__head">
+        <span class="eyebrow">
+          <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC04" d="M5.84 14.09a6.97 6.97 0 010-4.18V7.07H2.18a11 11 0 000 9.86l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+          Reviews
+        </span>
+        <h2 style="margin-top: var(--space-md)">What People Are <em class="italic" style="color:var(--color-blush)">Saying.</em></h2>
+        <div class="reflections__rating">
+          <span class="reflections__rating-stars">
+            <span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span>
+          </span>
+          <strong style="color:var(--color-text);font-weight:600">5.0</strong>
+          <span style="color:var(--color-muted)">based on Google reviews</span>
+        </div>
+      </div>
+
+      <div class="reflections__grid reflections__grid--two">
+        <article class="reflection">
+          <div class="reflection__head">
+            <div class="reflection__avatar">JG</div>
+            <div style="flex:1">
+              <div class="reflection__author">Jashandeep Gharyal</div>
+              <div class="reflection__meta-sub">Local Guide · 8 reviews</div>
+              <div class="reflection__meta">
+                <span class="reflection__stars"><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span></span>
+              </div>
+            </div>
+            <svg class="reflection__google" viewBox="0 0 24 24" fill="none" aria-label="Google"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC04" d="M5.84 14.09a6.97 6.97 0 010-4.18V7.07H2.18a11 11 0 000 9.86l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+          </div>
+          <p class="reflection__body is-clamped">Paras is honestly such a kind, caring, and genuine person who makes everyone around her feel comfortable and supported. She has such a calm and welcoming energy, and you can tell she truly cares about helping people. She's patient, understanding, easy to talk to, and always makes others feel heard without judgment. What really stands out about Paras is how compassionate and thoughtful she is in the way she communicates with people. She's also incredibly professional and knowledgeable while still feeling very approachable and down to earth. I would highly recommend Paras to anyone looking for a therapist who is warm, supportive, and truly passionate about what she does.</p>
+          <a href="#" class="reflection__readmore" aria-expanded="false">Read more</a>
+        </article>
+
+        <article class="reflection">
+          <div class="reflection__head">
+            <div class="reflection__avatar" style="background:#D9E5DA;color:#3F5544">TS</div>
+            <div style="flex:1">
+              <div class="reflection__author">The Singh Family Sardar</div>
+              <div class="reflection__meta-sub">1 review</div>
+              <div class="reflection__meta">
+                <span class="reflection__stars"><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span></span>
+              </div>
+            </div>
+            <svg class="reflection__google" viewBox="0 0 24 24" fill="none" aria-label="Google"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC04" d="M5.84 14.09a6.97 6.97 0 010-4.18V7.07H2.18a11 11 0 000 9.86l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+          </div>
+          <p class="reflection__body is-clamped">I've had the privilege of watching not only an incredible professional, but also an amazing human being dedicate themselves fully to helping others heal, grow, and find clarity in their lives. As a psychotherapist, they bring a rare combination of deep compassion, patience, intelligence, and genuine care that makes people feel truly seen and understood. What stands out most is their ability to create a safe, judgment-free space where people can open up without fear. They don't just listen — they connect, guide, challenge, and support in a way that leaves a lasting impact. Their passion for helping others is real, and it shows in every interaction. I can honestly say the same kindness, integrity, wisdom, and empathy they bring into their work is exactly who they are in real life. Anyone working with them is in incredibly capable hands. Highly recommend to anyone looking for a therapist who genuinely cares and goes above and beyond for the people they help.</p>
+          <a href="#" class="reflection__readmore" aria-expanded="false">Read more</a>
+        </article>
+
+        <article class="reflection">
+          <div class="reflection__head">
+            <div class="reflection__avatar" style="background:#E8DCC8;color:#7a5a32">MK</div>
+            <div style="flex:1">
+              <div class="reflection__author">Manpreet Kaur</div>
+              <div class="reflection__meta-sub">2 reviews</div>
+              <div class="reflection__meta">
+                <span class="reflection__stars"><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span><span class="emo">⭐</span></span>
+              </div>
+            </div>
+            <svg class="reflection__google" viewBox="0 0 24 24" fill="none" aria-label="Google"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC04" d="M5.84 14.09a6.97 6.97 0 010-4.18V7.07H2.18a11 11 0 000 9.86l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+          </div>
+          <p class="reflection__body is-clamped">From the very first session, Paras made me feel completely at ease. She has a way of listening that makes you feel truly heard — not just nodded at. Her warmth, intelligence, and depth of insight have helped me work through things I'd been carrying for years. I always leave our sessions feeling lighter, clearer, and more like myself. If you're looking for a therapist who is genuine, skilled, and deeply compassionate, you've found her.</p>
+          <a href="#" class="reflection__readmore" aria-expanded="false">Read more</a>
+        </article>
+      </div>
+
+      <div class="reflections__all">
+        <a href="https://share.google/NkGHTiQRRNLS3Tggw" target="_blank" rel="noopener" class="btn btn--secondary">
+          See all reviews
+          <span class="arrow emo emo--sm">→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA BEFORE FOOTER (matches home page) ============ -->
+  <section class="cta">
+    <div class="wrap">
+      <span class="eyebrow">
+        <span class="emo emo--md">💬</span>
+        a quiet next step
+      </span>
+      <h2 class="cta__title">Claim your <em>free session</em> today.</h2>
+      <ul class="cta__features">
+        <li><span class="emo">✓</span> No obligations</li>
+        <li><span class="emo">✓</span> 100% confidential</li>
+        <li><span class="emo">✓</span> Same-week availability</li>
+      </ul>
+      <div class="cta__actions">
+        <a href="consultation.html" class="btn btn--primary">
+          Get Free Session
+          <span class="arrow emo emo--sm">→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="foot">
+    <div class="wrap">
+      <div class="foot__top">
+        <div>
+          <a href="index.html" class="foot__logo" aria-label="Say More Psychotherapy — home">
+            <img src="logo.jpg" alt="Say More Psychotherapy" />
+          </a>
+          <h4>visit</h4>
+          <p>41 Edwin Drive<br/>Brampton, Ontario L6Y 1A2</p>
+          <p style="margin-top: var(--space-sm)"><a href="tel:+16479150231">(647) 915-0231</a></p>
+          <p><a href="mailto:hello@saymorepsychotherapy.ca">hello@saymorepsychotherapy.ca</a></p>
+        </div>
+        <div>
+          <h4>hours</h4>
+          <p>monday – friday<br/>9 a.m. — 5 p.m.</p>
+          <p style="margin-top: var(--space-sm)">saturday &amp; sunday<br/><em>closed</em></p>
+        </div>
+        <div>
+          <h4>around the site</h4>
+          <div class="foot__col">
+            <a href="about.html">about</a>
+            <a href="services.html">services</a>
+            <a href="location.html">location</a>
+            <a href="blog.html">blog</a>
+            <a href="consultation.html">free consultation</a>
+          </div>
+        </div>
+        <div>
+          <h4>stay quietly in touch</h4>
+          <p>An occasional note — never noisy. Unsubscribe anytime.</p>
+          <form class="foot__sub" onsubmit="event.preventDefault(); this.querySelector('button').textContent='thank you';">
+            <input type="email" placeholder="your email" required />
+            <button type="submit">subscribe</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="foot__wordmark">say<span class="dot"></span>more</div>
+
+      <div class="foot__bottom">
+        <div>© 2026 say more psychotherapy · established with care</div>
+        <div class="foot__bottom__links">
+          <a href="#">privacy</a>
+          <a href="#">crpo standards</a>
+          <a href="#">accessibility</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <a href="tel:+16479150231" class="call-widget" aria-label="Call Say More Psychotherapy">
+    <svg class="call-widget__icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.37 1.9.72 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0122 16.92z"/></svg>
+  </a>
+
+  <script src="script.js"></script>
+</body>
+</html>
