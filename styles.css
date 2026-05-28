@@ -805,7 +805,7 @@ body.nav-open { overflow: hidden; }
   color: var(--color-walnut);
   text-align: center;
   line-height: 0.9;
-  padding: var(--space-md) 0 0;
+  padding: var(--space-xl) 0 0;
   margin: 0 auto;
   max-width: var(--max);
   display: block;
@@ -822,6 +822,7 @@ body.nav-open { overflow: hidden; }
 }
 @media (max-width: 880px) {
   .hero__grid { grid-template-columns: 1fr; gap: var(--space-md); }
+  .hero__image-wrap { margin-top: var(--space-md); }
   .hero__image img { min-height: 320px; object-fit: cover; }
 }
 @media (max-width: 560px) {
