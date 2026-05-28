@@ -1829,7 +1829,6 @@ a.tag:hover {
   line-height: 0.85;
   padding: 0;
   margin-top: 0;
-  text-transform: lowercase;
 }
 .foot__wordmark .dot {
   display: inline-block;
@@ -2355,7 +2354,8 @@ a.tag:hover {
 /* ---------- Blog "Coming Soon" empty state ---------- */
 .blog-soon { background: var(--color-bg); }
 .blog-soon__card {
-  max-width: 720px;
+  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
   text-align: center;
   background: linear-gradient(180deg, #FBEEEA 0%, #F7DFD7 100%);
