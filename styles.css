@@ -2843,7 +2843,12 @@ a.tag:hover {
 
 @media (max-width: 880px) {
   .service-detail__grid { grid-template-columns: 1fr; gap: var(--space-xl); }
-  .service-detail__card { position: static; }
+  .service-detail__card { position: static; padding: var(--space-md); border-radius: 16px; }
+}
+@media (max-width: 600px) {
+  .service-detail { padding-left: 0; padding-right: 0; }
+  .service-detail > .wrap { padding-left: var(--space-sm); padding-right: var(--space-sm); }
+  .service-detail__card { padding: 18px; }
 }
 
 /* Tighter top spacing when sections directly follow the service-detail block */
