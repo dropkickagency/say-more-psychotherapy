@@ -1366,7 +1366,7 @@ a.tag:hover {
 
 /* ---------- Location ---------- */
 .location { background: var(--color-bg); }
-.location--grey { background: #F2F0EC; }
+.location--grey { background: var(--color-surface); }
 .location.section { padding-top: var(--space-xl); }
 .location__grid {
   display: grid;
