@@ -6,19 +6,19 @@
   --color-line:     #E8E4DA;
 
   /* text */
-  --color-text:     #8B5E3C;
-  --color-body:     #5A3D27;
-  --color-muted:    #7A6A5C;
+  --color-text:     #9B7045;
+  --color-body:     #745236;
+  --color-muted:    #8C7B6C;
 
   /* brand accents */
   --color-cream:    #EFE6D5;
-  --color-walnut:   #8B5E3C;
+  --color-walnut:   #9B7045;
   --color-blush:    #E8B8B0;
   --color-gold:     #C9A961;
   --color-ivory:    #F8F2E6;
   --color-sand:     #E6E2DA;
-  --color-cocoa:    #5A3D27;
-  --color-espresso: #3A2515;
+  --color-cocoa:    #745236;
+  --color-espresso: #5C4030;
 
   --font-display: 'Manrope', system-ui, -apple-system, sans-serif;
   --font-body:    'Manrope', system-ui, -apple-system, sans-serif;
@@ -1313,6 +1313,8 @@ a.tag:hover {
 
 /* ---------- Location ---------- */
 .location { background: var(--color-bg); }
+.location--grey { background: #F2F0EC; }
+.location.section { padding-top: var(--space-xl); }
 .location__grid {
   display: grid;
   grid-template-columns: 1fr 1.15fr;
