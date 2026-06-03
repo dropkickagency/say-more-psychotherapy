@@ -384,19 +384,19 @@
 
           <div class="field">
             <label for="name">Your name</label>
-            <input id="name" type="text" placeholder="First name" required />
+            <input id="name" name="name" type="text" placeholder="First name" required />
           </div>
           <div class="field">
             <label for="phone">Phone</label>
-            <input id="phone" type="tel" placeholder="(647) 000-0000" required />
+            <input id="phone" name="phone" type="tel" placeholder="(647) 000-0000" required />
           </div>
           <div class="field">
             <label for="email">Email</label>
-            <input id="email" type="email" placeholder="you@example.com" required />
+            <input id="email" name="email" type="email" placeholder="you@example.com" required />
           </div>
           <div class="field">
             <label for="when">When would suit you?</label>
-            <select id="when">
+            <select id="when" name="when">
               <option>Weekday morning</option>
               <option>Weekday afternoon</option>
               <option>Weekday evening</option>
@@ -405,7 +405,7 @@
           </div>
           <div class="field">
             <label for="note">Anything you'd like us to know (optional)</label>
-            <textarea id="note" rows="3" placeholder="A sentence is enough."></textarea>
+            <textarea id="note" name="note" rows="3" placeholder="A sentence is enough."></textarea>
           </div>
           <div class="form__submit">
             <button type="submit" class="btn btn--primary">
