@@ -60,11 +60,12 @@ export default async function handler(req, res) {
   const safeService = escapeHtml(service);
   const safePage = escapeHtml(page);
 
-  const subject = `New booking request — ${safeName}${service ? ` (${safeService})` : ""}`;
+  const practiceSubject = `Booking request — ${safeName}${service ? ` (${safeService})` : ""}`;
+  const clientSubject = "Thank you for requesting a booking";
 
   const practiceHtml = `
     <div style="font-family: -apple-system, system-ui, Segoe UI, Helvetica, Arial, sans-serif; color: #14110F; line-height: 1.55;">
-      <h2 style="font-family: Georgia, serif; color: #745236; margin-bottom: 16px;">New booking request</h2>
+      <h2 style="font-family: Georgia, serif; color: #745236; margin-bottom: 16px;">Booking request</h2>
       <p style="margin: 0 0 8px;"><strong>Name:</strong> ${safeName}</p>
       <p style="margin: 0 0 8px;"><strong>Email:</strong> <a href="mailto:${safeEmail}" style="color:#9B7045;">${safeEmail}</a></p>
       ${phone ? `<p style="margin: 0 0 8px;"><strong>Phone:</strong> ${safePhone}</p>` : ""}
@@ -82,11 +83,12 @@ export default async function handler(req, res) {
   const clientHtml = `
     <div style="font-family: -apple-system, system-ui, Segoe UI, Helvetica, Arial, sans-serif; color: #14110F; line-height: 1.6; max-width: 560px;">
       <p>Hi ${safeFirstName},</p>
-      <p>Thank you for reaching out to Say More Psychotherapy. We've received your request and will be in touch within two business days with a few times that could work.</p>
+      <p>Thank you for requesting a booking. We will be in contact with you shortly.</p>
       <p>If you need to reach us in the meantime, you can reply to this email or call <a href="tel:+16479150231" style="color:#9B7045;">(647) 915-0231</a>.</p>
       <p style="margin-top: 24px;">Warmly,<br><strong>Paras Geramian</strong><br>Registered Psychotherapist (Qualifying) · CRPO</p>
       <hr style="margin: 24px 0; border: none; border-top: 1px solid #E8E4DA;">
       <p style="color: #7A6A5C; font-size: 12px; margin: 0;">
+        Say More Psychotherapy<br>
         41 Edwin Drive, Brampton, ON L6Y 1A2<br>
         <a href="https://www.saymorepsychotherapy.ca" style="color:#9B7045;">www.saymorepsychotherapy.ca</a>
       </p>
@@ -99,7 +101,7 @@ export default async function handler(req, res) {
       from: FROM_EMAIL,
       to: TO_EMAIL,
       replyTo: email,
-      subject,
+      subject: practiceSubject,
       html: practiceHtml,
     });
 
@@ -113,7 +115,7 @@ export default async function handler(req, res) {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: email,
-        subject: "We received your request — Say More Psychotherapy",
+        subject: clientSubject,
         html: clientHtml,
       });
     } catch (confirmErr) {

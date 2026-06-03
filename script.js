@@ -38,8 +38,8 @@ document.documentElement.classList.add('js-animate');
             // Replace the form contents with a thank-you state
             form.innerHTML =
               '<div class="form__success">' +
-                '<h3>Thank you — we\'ll be in touch.</h3>' +
-                '<p>We\'ve received your request and will reply within two business days. ' +
+                '<h3>Thank you for requesting a booking.</h3>' +
+                '<p>We will be in contact with you shortly. ' +
                 'A confirmation email is on its way to ' +
                 '<strong>' + (data.email || 'your inbox') + '</strong>. ' +
                 'If you don\'t see it, please check your spam folder.</p>' +
