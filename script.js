@@ -36,13 +36,13 @@ document.documentElement.classList.add('js-animate');
         .then(function (resp) {
           if (resp.ok && resp.body && resp.body.ok) {
             // Replace the form contents with a thank-you state
+            var confirmLine = data.email
+              ? 'A confirmation email is on its way to <strong>' + data.email + '</strong>. If you don\'t see it, please check your spam folder.'
+              : 'We\'ll reach out by phone shortly.';
             form.innerHTML =
               '<div class="form__success">' +
                 '<h3>Thank you for requesting a booking.</h3>' +
-                '<p>We will be in contact with you shortly. ' +
-                'A confirmation email is on its way to ' +
-                '<strong>' + (data.email || 'your inbox') + '</strong>. ' +
-                'If you don\'t see it, please check your spam folder.</p>' +
+                '<p>We will be in contact with you shortly. ' + confirmLine + '</p>' +
               '</div>';
           } else {
             btn.disabled = false;

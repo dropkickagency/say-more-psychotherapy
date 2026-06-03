@@ -47,8 +47,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true }); // silently accept, do nothing
   }
 
-  if (!name || !isLikelyEmail(email)) {
-    return res.status(400).json({ error: "Name and a valid email are required." });
+  if (!name || !phone || String(phone).trim() === "") {
+    return res.status(400).json({ error: "Name and phone number are required." });
+  }
+  if (email && !isLikelyEmail(email)) {
+    return res.status(400).json({ error: "That email address doesn't look right — please double-check it, or leave it blank." });
   }
 
   const safeName = escapeHtml(name);
@@ -67,15 +70,15 @@ export default async function handler(req, res) {
     <div style="font-family: -apple-system, system-ui, Segoe UI, Helvetica, Arial, sans-serif; color: #14110F; line-height: 1.55;">
       <h2 style="font-family: Georgia, serif; color: #745236; margin-bottom: 16px;">Booking request</h2>
       <p style="margin: 0 0 8px;"><strong>Name:</strong> ${safeName}</p>
-      <p style="margin: 0 0 8px;"><strong>Email:</strong> <a href="mailto:${safeEmail}" style="color:#9B7045;">${safeEmail}</a></p>
-      ${phone ? `<p style="margin: 0 0 8px;"><strong>Phone:</strong> ${safePhone}</p>` : ""}
+      <p style="margin: 0 0 8px;"><strong>Phone:</strong> <a href="tel:${safePhone.replace(/[^0-9+]/g, '')}" style="color:#9B7045;">${safePhone}</a></p>
+      ${email ? `<p style="margin: 0 0 8px;"><strong>Email:</strong> <a href="mailto:${safeEmail}" style="color:#9B7045;">${safeEmail}</a></p>` : ""}
       ${service ? `<p style="margin: 0 0 8px;"><strong>Service interest:</strong> ${safeService}</p>` : ""}
       ${when ? `<p style="margin: 0 0 8px;"><strong>When suits them:</strong> ${safeWhen}</p>` : ""}
       ${note ? `<p style="margin: 16px 0 8px;"><strong>Anything they'd like us to know:</strong></p><div style="padding: 12px 14px; background: #F7F4EE; border-radius: 8px; border-left: 3px solid #E8B8B0;">${safeNote}</div>` : ""}
       <hr style="margin: 24px 0; border: none; border-top: 1px solid #E8E4DA;">
       <p style="color: #7A6A5C; font-size: 12px; margin: 0;">
         Submitted via saymorepsychotherapy.ca${page ? ` · <code>${safePage}</code>` : ""}<br>
-        Reply directly to this email — it'll reach ${safeFirstName}.
+        ${email ? `Reply directly to this email — it'll reach ${safeFirstName}.` : `${safeFirstName} didn't leave an email — please reach out by phone.`}
       </p>
     </div>
   `;
@@ -97,29 +100,27 @@ export default async function handler(req, res) {
 
   try {
     // 1) Email the practice
-    const practiceRes = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: TO_EMAIL,
-      replyTo: email,
-      subject: practiceSubject,
-      html: practiceHtml,
-    });
+    const practiceSend = { from: FROM_EMAIL, to: TO_EMAIL, subject: practiceSubject, html: practiceHtml };
+    if (email) practiceSend.replyTo = email;
+    const practiceRes = await resend.emails.send(practiceSend);
 
     if (practiceRes.error) {
       console.error("Resend (practice) error:", practiceRes.error);
       return res.status(502).json({ error: "Could not send your request. Please call us instead." });
     }
 
-    // 2) Confirmation email to the client (best-effort; don't fail the request if this errors)
-    try {
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: email,
-        subject: clientSubject,
-        html: clientHtml,
-      });
-    } catch (confirmErr) {
-      console.warn("Confirmation email failed (non-fatal):", confirmErr);
+    // 2) Confirmation email to the client — only if they provided an email (best-effort).
+    if (email) {
+      try {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: email,
+          subject: clientSubject,
+          html: clientHtml,
+        });
+      } catch (confirmErr) {
+        console.warn("Confirmation email failed (non-fatal):", confirmErr);
+      }
     }
 
     return res.status(200).json({ ok: true });
