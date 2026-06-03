@@ -1525,39 +1525,11 @@ a.tag:hover {
 .form__honeypot { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
 /* ---------- Thank-you page ---------- */
 .thanks {
-  background: linear-gradient(180deg, #FBEEEA 0%, #F7DFD7 100%);
+  background: var(--color-bg);
   text-align: center;
   position: relative;
-  overflow: hidden;
-}
-.thanks::before,
-.thanks::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-.thanks::before {
-  top: -10%;
-  left: -8%;
-  width: 30%;
-  aspect-ratio: 1;
-  background: var(--color-blush);
-  opacity: 0.35;
-  filter: blur(80px);
-}
-.thanks::after {
-  bottom: -15%;
-  right: -10%;
-  width: 36%;
-  aspect-ratio: 1;
-  background: var(--color-walnut);
-  opacity: 0.12;
-  filter: blur(100px);
 }
 .thanks__inner {
-  position: relative;
-  z-index: 1;
   max-width: 680px;
   margin: 0 auto;
   text-align: center;
@@ -1566,11 +1538,11 @@ a.tag:hover {
   width: 92px;
   height: 92px;
   border-radius: 50%;
-  background: #fff;
+  background: linear-gradient(180deg, #FBEEEA 0%, #F1D2C8 100%);
   display: inline-grid;
   place-items: center;
   margin-bottom: var(--space-lg);
-  box-shadow: 0 16px 32px -16px rgba(155,112,69,0.35);
+  box-shadow: 0 16px 32px -16px rgba(155,112,69,0.25);
   color: var(--color-walnut);
 }
 .thanks__icon .emo { font-size: 44px; line-height: 1; }
