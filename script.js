@@ -1,6 +1,74 @@
 // Enable animation styles only when JS is available
 document.documentElement.classList.add('js-animate');
 
+// ---- Booking forms (Resend via /api/booking) ----
+(function () {
+  var forms = document.querySelectorAll('form[data-booking-form]');
+  if (!forms.length) return;
+
+  forms.forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var btn = form.querySelector('button[type="submit"]');
+      if (!btn || btn.disabled) return;
+
+      var originalLabel = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = 'Sending…';
+
+      // Collect form data
+      var data = {};
+      Array.from(form.elements).forEach(function (el) {
+        if (!el.name) return;
+        if (el.type === 'submit' || el.type === 'button') return;
+        data[el.name] = el.value;
+      });
+      data.page = window.location.pathname || '';
+
+      fetch('/api/booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(data),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) { return { ok: r.ok, body: j }; });
+        })
+        .then(function (resp) {
+          if (resp.ok && resp.body && resp.body.ok) {
+            // Replace the form contents with a thank-you state
+            form.innerHTML =
+              '<div class="form__success">' +
+                '<h3>Thank you — we\'ll be in touch.</h3>' +
+                '<p>We\'ve received your request and will reply within two business days. ' +
+                'A confirmation email is on its way to ' +
+                '<strong>' + (data.email || 'your inbox') + '</strong>. ' +
+                'If you don\'t see it, please check your spam folder.</p>' +
+              '</div>';
+          } else {
+            btn.disabled = false;
+            btn.innerHTML = originalLabel;
+            var msg = (resp.body && resp.body.error) || 'Something went wrong. Please try again or call us at (647) 915-0231.';
+            showFormError(form, msg);
+          }
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.innerHTML = originalLabel;
+          showFormError(form, 'Network error. Please check your connection or call us at (647) 915-0231.');
+        });
+    });
+  });
+
+  function showFormError(form, msg) {
+    var existing = form.querySelector('.form__error');
+    if (existing) existing.remove();
+    var box = document.createElement('div');
+    box.className = 'form__error';
+    box.textContent = msg;
+    form.appendChild(box);
+  }
+})();
+
 // ---- Review "Read more" toggle ----
 (function () {
   document.querySelectorAll('.reflection__readmore').forEach(function (link) {

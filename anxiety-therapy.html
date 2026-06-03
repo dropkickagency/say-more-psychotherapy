@@ -153,7 +153,12 @@
             <span class="service-detail__price-suffix">/session</span>
           </div>
 
-          <form class="form service-detail__form" onsubmit="event.preventDefault(); this.querySelector('button').innerHTML='thank you — we\'ll be in touch within 2 business days';">
+          <form class="form service-detail__form" data-booking-form novalidate>
+            <input type="hidden" name="service" value="Anxiety Therapy" />
+            <div class="form__honeypot" aria-hidden="true">
+              <label for="website">Website (leave blank)</label>
+              <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+            </div>
             <div class="field">
               <label for="name">Your name</label>
               <input id="name" type="text" placeholder="First name" required />

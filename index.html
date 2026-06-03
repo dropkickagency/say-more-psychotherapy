@@ -371,7 +371,12 @@
           </ul>
         </div>
 
-        <form class="form" style="max-width: 100%;" onsubmit="event.preventDefault(); this.querySelector('button').innerHTML='thank you — we\\'ll be in touch within 2 business days';">
+        <form class="form" style="max-width: 100%;" data-booking-form novalidate>
+            <input type="hidden" name="service" value="Free Virtual Consultation" />
+            <div class="form__honeypot" aria-hidden="true">
+              <label for="website">Website (leave blank)</label>
+              <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+            </div>
           <h3>Get Free Session</h3>
           <p class="form__intro">15 minutes. No commitment. We'll be in touch within two business days with a few times that could work.</p>
 
