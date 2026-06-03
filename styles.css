@@ -1523,6 +1523,83 @@ a.tag:hover {
 .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--color-walnut); }
 .form__submit { margin-top: var(--space-md); text-align: left; }
 .form__honeypot { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+/* ---------- Thank-you page ---------- */
+.thanks {
+  background: linear-gradient(180deg, #FBEEEA 0%, #F7DFD7 100%);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.thanks::before,
+.thanks::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.thanks::before {
+  top: -10%;
+  left: -8%;
+  width: 30%;
+  aspect-ratio: 1;
+  background: var(--color-blush);
+  opacity: 0.35;
+  filter: blur(80px);
+}
+.thanks::after {
+  bottom: -15%;
+  right: -10%;
+  width: 36%;
+  aspect-ratio: 1;
+  background: var(--color-walnut);
+  opacity: 0.12;
+  filter: blur(100px);
+}
+.thanks__inner {
+  position: relative;
+  z-index: 1;
+  max-width: 680px;
+  margin: 0 auto;
+  text-align: center;
+}
+.thanks__icon {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: #fff;
+  display: inline-grid;
+  place-items: center;
+  margin-bottom: var(--space-lg);
+  box-shadow: 0 16px 32px -16px rgba(155,112,69,0.35);
+  color: var(--color-walnut);
+}
+.thanks__icon .emo { font-size: 44px; line-height: 1; }
+.thanks__title {
+  font-family: var(--font-script);
+  font-weight: 500;
+  font-size: clamp(38px, 5vw, 64px);
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+  color: var(--color-walnut);
+  margin: 0 0 var(--space-md);
+}
+.thanks__sub {
+  font-size: 17px;
+  color: var(--color-body);
+  max-width: 50ch;
+  margin: 0 auto var(--space-xl);
+  line-height: 1.6;
+}
+.thanks__actions {
+  display: inline-flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+@media (max-width: 600px) {
+  .thanks__actions .btn { width: 100%; justify-content: center; }
+}
+
 .form__success {
   padding: var(--space-md);
   background: linear-gradient(180deg, #FBEEEA 0%, #F7DFD7 100%);

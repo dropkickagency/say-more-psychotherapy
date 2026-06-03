@@ -31,25 +31,27 @@ document.documentElement.classList.add('js-animate');
         body: JSON.stringify(data),
       })
         .then(function (r) {
-          return r.json().then(function (j) { return { ok: r.ok, body: j }; });
+          return r.text().then(function (raw) {
+            var body;
+            try { body = JSON.parse(raw); } catch (_) { body = { error: raw || ('HTTP ' + r.status) }; }
+            return { ok: r.ok, status: r.status, body: body };
+          });
         })
         .then(function (resp) {
           if (resp.ok && resp.body && resp.body.ok) {
-            // Replace the form contents with a thank-you state
-            form.innerHTML =
-              '<div class="form__success">' +
-                '<h3>Thank you for requesting a booking.</h3>' +
-                '<p>We will be in contact with you shortly. ' +
-                'A confirmation email is on its way to ' +
-                '<strong>' + (data.email || 'your inbox') + '</strong>. ' +
-                'If you don\'t see it, please check your spam folder.</p>' +
-              '</div>';
-          } else {
-            btn.disabled = false;
-            btn.innerHTML = originalLabel;
-            var msg = (resp.body && resp.body.error) || 'Something went wrong. Please try again or call us at (647) 915-0231.';
-            showFormError(form, msg);
+            // Redirect to the thank-you page
+            window.location.href = 'thank-you.html';
+            return;
           }
+          btn.disabled = false;
+          btn.innerHTML = originalLabel;
+          // Coerce whatever the server returned in `.error` into a clean string.
+          var raw = resp.body && resp.body.error;
+          var msg;
+          if (typeof raw === 'string') msg = raw;
+          else if (raw && typeof raw === 'object') msg = raw.message || raw.error || JSON.stringify(raw);
+          if (!msg) msg = 'Something went wrong. Please try again or call us at (647) 915-0231.';
+          showFormError(form, msg);
         })
         .catch(function () {
           btn.disabled = false;
