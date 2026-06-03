@@ -1557,6 +1557,15 @@ a.tag:hover {
   .field--row { grid-template-columns: 1fr; }
 }
 
+/* Tighten space above 'What to expect' on consultation page (mobile only).
+   :has() selects the page-hero that's immediately followed by the consult
+   section — only true on consultation.html, so this doesn't affect other
+   pages that use page-hero. */
+@media (max-width: 880px) {
+  .page-hero:has(+ .section.consult) { padding-bottom: var(--space-md); }
+  .section.consult { padding-top: 0 !important; }
+}
+
 /* ---------- Schedule section ---------- */
 .schedule { background: var(--color-bg); }
 .schedule__grid {
