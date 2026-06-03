@@ -827,9 +827,6 @@ body.nav-open { overflow: hidden; }
 .hero__image-wrap {
   margin-top: var(--space-2xl);
   position: relative;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
 }
 .hero__image {
   background: transparent;
