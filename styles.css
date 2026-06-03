@@ -863,7 +863,13 @@ body.nav-open { overflow: hidden; }
 }
 @media (max-width: 880px) {
   .hero__grid { grid-template-columns: 1fr; gap: var(--space-md); }
-  .hero__image-wrap { margin-top: var(--space-md); }
+  /* Full viewport width on mobile only — break out of .wrap padding */
+  .hero__image-wrap {
+    margin-top: var(--space-md);
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+  }
   .hero__image img { min-height: 320px; object-fit: cover; }
 }
 @media (max-width: 560px) {
