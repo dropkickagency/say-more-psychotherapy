@@ -55,7 +55,11 @@ export default async function handler(req, res) {
     if (req.method !== "POST") return jsonError(res, 405, "Method not allowed.");
 
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const { name, email, phone, when, note, service, page, website } = body;
+    const {
+      name, email, phone, when, note, service, page, website,
+      utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+      fbclid, gclid, referrer, landing_page,
+    } = body;
 
     // Honeypot
     if (website && String(website).trim() !== "") {
@@ -162,7 +166,11 @@ export default async function handler(req, res) {
       if (sql) {
         await ensureSchema();
         await sql`
-          INSERT INTO leads (name, email, phone, service, "when", note, source_page, source, status)
+          INSERT INTO leads (
+            name, email, phone, service, "when", note, source_page, source, status,
+            utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+            fbclid, gclid, referrer, landing_page
+          )
           VALUES (
             ${name || ""},
             ${email || ""},
@@ -172,7 +180,16 @@ export default async function handler(req, res) {
             ${note || ""},
             ${page || ""},
             'booking-form',
-            'new'
+            'new',
+            ${utm_source || null},
+            ${utm_medium || null},
+            ${utm_campaign || null},
+            ${utm_content || null},
+            ${utm_term || null},
+            ${fbclid || null},
+            ${gclid || null},
+            ${referrer || null},
+            ${landing_page || null}
           )
         `;
       }

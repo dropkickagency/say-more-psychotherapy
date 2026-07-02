@@ -1,6 +1,40 @@
 // Enable animation styles only when JS is available
 document.documentElement.classList.add('js-animate');
 
+// ---- Lead attribution: capture UTM params + click IDs on landing, persist for session ----
+// Runs on every page load. First-touch wins (existing values are preserved so we don't clobber
+// the ad-referred campaign on a later organic pageview).
+(function () {
+  try {
+    var STORAGE_KEY = 'sm_attribution';
+    var TRACKED = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid'];
+    var stored = {};
+    try { stored = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch (e) { stored = {}; }
+
+    var params = new URLSearchParams(window.location.search || '');
+    var changed = false;
+    TRACKED.forEach(function (k) {
+      if (!stored[k] && params.has(k)) {
+        stored[k] = params.get(k);
+        changed = true;
+      }
+    });
+
+    if (!stored.referrer && document.referrer) {
+      var sameHost = false;
+      try { sameHost = new URL(document.referrer).host === window.location.host; } catch (e) {}
+      if (!sameHost) { stored.referrer = document.referrer; changed = true; }
+    }
+    if (!stored.landing_page) {
+      stored.landing_page = window.location.pathname + window.location.search;
+      changed = true;
+    }
+    if (changed) {
+      try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stored)); } catch (e) {}
+    }
+  } catch (e) { /* attribution is best-effort — never break a page over it */ }
+})();
+
 // ---- Booking forms (Resend via /api/booking) ----
 (function () {
   var forms = document.querySelectorAll('form[data-booking-form]');
@@ -24,6 +58,15 @@ document.documentElement.classList.add('js-animate');
         data[el.name] = el.value;
       });
       data.page = window.location.pathname || '';
+
+      // Attach attribution from sessionStorage (captured on landing) so we can tag
+      // Meta / Google / organic leads in the admin.
+      try {
+        var attr = JSON.parse(sessionStorage.getItem('sm_attribution') || '{}') || {};
+        ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid','referrer','landing_page'].forEach(function (k) {
+          if (attr[k]) data[k] = attr[k];
+        });
+      } catch (e) { /* ignore — attribution is optional */ }
 
       fetch('/api/booking', {
         method: 'POST',

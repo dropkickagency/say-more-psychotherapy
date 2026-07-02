@@ -111,6 +111,51 @@ function publishChip(published) {
     : `<span class="chip chip--draft">draft</span>`;
 }
 
+// Classify a lead by its attribution fields. Returns { key, label }.
+// `key` is the CSS chip modifier (chip--meta / chip--google-ads / etc).
+function classifySource(lead) {
+  if (!lead) return { key: 'direct', label: 'Direct' };
+  const s = String(lead.utm_source || '').toLowerCase();
+  const m = String(lead.utm_medium || '').toLowerCase();
+  const ref = String(lead.referrer || '').toLowerCase();
+
+  // Meta (fbclid is definitive, or utm_source=facebook/meta/instagram)
+  if (lead.fbclid) return { key: 'meta', label: 'Meta Ads' };
+  if (['facebook', 'meta', 'fb'].includes(s)) return { key: 'meta', label: 'Meta Ads' };
+  if (['instagram', 'ig'].includes(s)) {
+    return m === 'cpc' || m === 'paid' || m === 'ads'
+      ? { key: 'meta', label: 'Instagram Ads' }
+      : { key: 'meta', label: 'Instagram' };
+  }
+  // Google Ads (gclid is definitive; utm_source=google + cpc/paid medium is Ads too)
+  if (lead.gclid) return { key: 'google-ads', label: 'Google Ads' };
+  if (s === 'google' && (m === 'cpc' || m === 'paid' || m === 'ppc' || m === 'ads')) {
+    return { key: 'google-ads', label: 'Google Ads' };
+  }
+  // Google organic
+  if (s === 'google') return { key: 'google', label: 'Google Organic' };
+  if (ref.includes('google.') && !ref.includes('googlesyndication')) return { key: 'google', label: 'Google Organic' };
+  // LinkedIn
+  if (s === 'linkedin' || ref.includes('linkedin.')) return { key: 'linkedin', label: 'LinkedIn' };
+  // Bing
+  if (s === 'bing' || ref.includes('bing.')) return { key: 'organic', label: 'Bing' };
+  // Explicit UTM but unrecognized source
+  if (lead.utm_source) return { key: 'other', label: lead.utm_source };
+  // Non-search referral
+  if (lead.referrer) {
+    let host = '';
+    try { host = new URL(lead.referrer).hostname.replace(/^www\./, ''); } catch { host = 'referral'; }
+    if (host.includes('facebook') || host.includes('instagram')) return { key: 'meta', label: 'Meta' };
+    return { key: 'referral', label: host };
+  }
+  return { key: 'direct', label: 'Direct' };
+}
+
+function sourceChip(lead) {
+  const { key, label } = classifySource(lead);
+  return `<span class="chip chip--${escapeHtml(key)}" title="${escapeHtml(label)}"><span class="chip__dot"></span>${escapeHtml(label)}</span>`;
+}
+
 function showAlert(container, message, type = "error") {
   if (!container) return;
   container.innerHTML = `<div class="alert alert--${type}">${escapeHtml(message)}</div>`;
@@ -158,4 +203,6 @@ window.fmtRelative = fmtRelative;
 window.escapeHtml = escapeHtml;
 window.statusChip = statusChip;
 window.publishChip = publishChip;
+window.classifySource = classifySource;
+window.sourceChip = sourceChip;
 window.showAlert = showAlert;

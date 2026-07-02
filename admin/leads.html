@@ -30,13 +30,25 @@
       color: var(--admin-muted); font-weight: 600; margin-bottom: 2px;
     }
     .lead-detail dd { margin: 0 0 12px; font-size: 14px; }
-    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .filters {
+      display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;
+      background: #FFFFFF;
+      padding: 14px 16px;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius);
+    }
+    .filter-group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .filter-group__label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--admin-muted); font-weight: 600; margin-right: 6px;
+    }
     .filter-btn {
-      padding: 6px 14px; border-radius: 999px;
-      background: #FFFFFF; border: 1px solid var(--admin-border-strong);
-      cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500;
+      padding: 5px 12px; border-radius: 999px;
+      background: #FBF9F4; border: 1px solid var(--admin-border-strong);
+      cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500;
       color: var(--admin-muted);
     }
+    .filter-btn:hover { background: var(--admin-brand-light); color: var(--admin-brand-dark); }
     .filter-btn.is-active { background: var(--admin-brand); color: #FFFFFF; border-color: var(--admin-brand); }
   </style>
 </head>
@@ -48,9 +60,18 @@
         <strong>Say More Admin</strong>
       </div>
       <nav class="admin__nav">
-        <a href="/admin/index.html">Overview</a>
-        <a href="/admin/leads.html">Leads</a>
-        <a href="/admin/blog.html">Blog</a>
+        <a href="/admin/index.html">
+          <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Overview
+        </a>
+        <a href="/admin/leads.html">
+          <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Leads
+        </a>
+        <a href="/admin/blog.html">
+          <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Blog
+        </a>
       </nav>
       <div class="admin__sidebar-foot">
         <a href="/" target="_blank" rel="noopener">View website ↗</a>
@@ -69,11 +90,19 @@
       <div id="alert"></div>
 
       <div class="filters" id="filters">
-        <button class="filter-btn is-active" data-status="">All</button>
-        <button class="filter-btn" data-status="new">New</button>
-        <button class="filter-btn" data-status="contacted">Contacted</button>
-        <button class="filter-btn" data-status="converted">Converted</button>
-        <button class="filter-btn" data-status="lost">Lost</button>
+        <div class="filter-group">
+          <span class="filter-group__label">Status</span>
+          <button class="filter-btn is-active" data-status="">All</button>
+          <button class="filter-btn" data-status="new">New</button>
+          <button class="filter-btn" data-status="contacted">Contacted</button>
+          <button class="filter-btn" data-status="converted">Converted</button>
+          <button class="filter-btn" data-status="lost">Lost</button>
+        </div>
+        <div class="filter-group" id="sourceFilters">
+          <span class="filter-group__label">Source</span>
+          <button class="filter-btn is-active" data-source="">All</button>
+          <!-- Filled dynamically based on which sources actually appear -->
+        </div>
       </div>
 
       <div class="table__wrap">
@@ -84,13 +113,14 @@
               <th>Name</th>
               <th>Contact</th>
               <th>Service</th>
+              <th>Source</th>
               <th>Status</th>
               <th>Received</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="leadsBody">
-            <tr><td colspan="7" class="loading">Loading leads…</td></tr>
+            <tr><td colspan="8" class="loading">Loading leads…</td></tr>
           </tbody>
         </table>
       </div>
@@ -99,13 +129,39 @@
 
   <script src="/admin/admin.js"></script>
   <script>
-    const state = { leads: [], filter: "", expanded: new Set() };
+    const state = { leads: [], filter: "", sourceFilter: "", expanded: new Set() };
+
+    function buildSourceFilters() {
+      const container = document.getElementById("sourceFilters");
+      const seen = new Map(); // key -> label
+      state.leads.forEach(l => {
+        const { key, label } = classifySource(l);
+        if (!seen.has(key)) seen.set(key, label);
+      });
+      const buttons = [`<button class="filter-btn is-active" data-source="">All</button>`];
+      Array.from(seen.entries()).forEach(([key, label]) => {
+        buttons.push(`<button class="filter-btn" data-source="${escapeHtml(key)}">${escapeHtml(label)}</button>`);
+      });
+      container.innerHTML = `<span class="filter-group__label">Source</span>${buttons.join("")}`;
+      container.querySelectorAll(".filter-btn").forEach(b => {
+        b.addEventListener("click", () => {
+          container.querySelectorAll(".filter-btn").forEach(x => x.classList.remove("is-active"));
+          b.classList.add("is-active");
+          state.sourceFilter = b.dataset.source;
+          render();
+        });
+      });
+    }
 
     function render() {
       const body = document.getElementById("leadsBody");
-      const rows = state.leads.filter(l => !state.filter || l.status === state.filter);
+      const rows = state.leads.filter(l => {
+        if (state.filter && l.status !== state.filter) return false;
+        if (state.sourceFilter && classifySource(l).key !== state.sourceFilter) return false;
+        return true;
+      });
       if (!rows.length) {
-        body.innerHTML = `<tr><td colspan="7"><div class="empty"><h3>No ${state.filter || ""} leads.</h3><p>New booking-form submissions will appear here.</p></div></td></tr>`;
+        body.innerHTML = `<tr><td colspan="8"><div class="empty"><h3>No matching leads.</h3><p>Try clearing filters, or check back after some booking-form submissions come in.</p></div></td></tr>`;
         return;
       }
       body.innerHTML = rows.map(l => renderRow(l)).join("");
@@ -123,6 +179,7 @@
             ${l.email ? `<div><a href="mailto:${escapeHtml(l.email)}">${escapeHtml(l.email)}</a></div>` : ""}
           </td>
           <td>${escapeHtml(l.service || "—")}</td>
+          <td>${sourceChip(l)}</td>
           <td>${statusChip(l.status)}</td>
           <td><small style="color:#7A6A5C;" title="${escapeHtml(fmtDateTime(l.created_at))}">${escapeHtml(fmtRelative(l.created_at))}</small></td>
           <td class="actions">
@@ -131,18 +188,20 @@
         </tr>
       `];
       if (isOpen) {
+        const attribution = renderAttribution(l);
         html.push(`
           <tr class="lead-detail" data-detail-for="${l.id}">
-            <td colspan="7">
+            <td colspan="8">
               <div class="lead-detail__grid">
                 <div>
                   <dl>
-                    <dt>Received via</dt>
+                    <dt>Submitted on page</dt>
                     <dd>${escapeHtml(l.source_page || "—")}</dd>
                     <dt>Preferred time</dt>
                     <dd>${escapeHtml(l.when || "—")}</dd>
                     <dt>Their message</dt>
                     <dd style="white-space: pre-wrap;">${escapeHtml(l.note || "—")}</dd>
+                    ${attribution}
                   </dl>
                 </div>
                 <div>
@@ -224,12 +283,29 @@
       });
     }
 
+    function renderAttribution(l) {
+      const bits = [];
+      if (l.utm_source) bits.push(['Campaign source', l.utm_source]);
+      if (l.utm_medium) bits.push(['Medium', l.utm_medium]);
+      if (l.utm_campaign) bits.push(['Campaign', l.utm_campaign]);
+      if (l.utm_content) bits.push(['Ad / Content', l.utm_content]);
+      if (l.utm_term) bits.push(['Search term', l.utm_term]);
+      if (l.fbclid) bits.push(['Facebook click ID', l.fbclid.slice(0, 24) + (l.fbclid.length > 24 ? '…' : '')]);
+      if (l.gclid)  bits.push(['Google click ID',   l.gclid.slice(0, 24) + (l.gclid.length > 24 ? '…' : '')]);
+      if (l.referrer) bits.push(['Came from', l.referrer]);
+      if (l.landing_page && l.landing_page !== l.source_page) bits.push(['Landed on', l.landing_page]);
+      if (!bits.length) return "";
+      return `<dt style="margin-top: 8px;">Attribution</dt>
+        <dd>${bits.map(([k, v]) => `<div style="display:flex; gap: 8px; margin-bottom: 3px;"><span style="min-width: 130px; color: #7A6A5C; font-size: 12px;">${escapeHtml(k)}</span><span style="font-size: 13px; word-break: break-all;">${escapeHtml(v)}</span></div>`).join("")}</dd>`;
+    }
+
     (async () => {
       if (!(await requireSession())) return;
       const alertBox = document.getElementById("alert");
       try {
         const data = await AdminAPI.get("/api/admin/leads");
         state.leads = data.leads || [];
+        buildSourceFilters();
         render();
 
         // If URL has #lead-N, expand that one
@@ -245,12 +321,13 @@
       } catch (err) {
         showAlert(alertBox, "Couldn't load leads: " + err.message, "error");
         document.getElementById("leadsBody").innerHTML =
-          "<tr><td colspan='7'><div class='empty'><h3>Unable to load leads</h3><p>Check that the database is configured.</p></div></td></tr>";
+          "<tr><td colspan='8'><div class='empty'><h3>Unable to load leads</h3><p>Check that the database is configured.</p></div></td></tr>";
       }
 
-      document.querySelectorAll(".filter-btn").forEach(b => {
+      // Status filter buttons (defined in HTML)
+      document.querySelectorAll("#filters .filter-group:first-child .filter-btn").forEach(b => {
         b.addEventListener("click", () => {
-          document.querySelectorAll(".filter-btn").forEach(x => x.classList.remove("is-active"));
+          document.querySelectorAll("#filters .filter-group:first-child .filter-btn").forEach(x => x.classList.remove("is-active"));
           b.classList.add("is-active");
           state.filter = b.dataset.status;
           render();
