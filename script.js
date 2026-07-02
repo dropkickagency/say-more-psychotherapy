@@ -209,6 +209,77 @@ document.documentElement.classList.add('js-animate');
   });
 })();
 
+// ---- Gallery carousel (clinic space, shows one square image at a time) ----
+(function () {
+  var carousels = document.querySelectorAll('[data-gallery]');
+  if (!carousels.length) return;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var AUTOPLAY_MS = 6000;
+
+  carousels.forEach(function (root) {
+    var slides = root.querySelectorAll('[data-gallery-slide]');
+    if (!slides.length) return;
+    var dotsWrap = root.querySelector('[data-gallery-dots]');
+    var prevBtn = root.querySelector('[data-gallery-prev]');
+    var nextBtn = root.querySelector('[data-gallery-next]');
+    var index = 0;
+    var timer = null;
+
+    // Build dot indicators
+    if (dotsWrap) {
+      slides.forEach(function (_, i) {
+        var dot = document.createElement('button');
+        dot.type = 'button';
+        dot.className = 'gallery__dot' + (i === 0 ? ' is-active' : '');
+        dot.setAttribute('aria-label', 'Show image ' + (i + 1));
+        dot.addEventListener('click', function () { show(i); resetAutoplay(); });
+        dotsWrap.appendChild(dot);
+      });
+    }
+
+    function show(i) {
+      var n = slides.length;
+      var target = ((i % n) + n) % n;
+      slides.forEach(function (s, j) { s.classList.toggle('is-active', j === target); });
+      if (dotsWrap) {
+        dotsWrap.querySelectorAll('.gallery__dot').forEach(function (d, j) {
+          d.classList.toggle('is-active', j === target);
+        });
+      }
+      index = target;
+    }
+
+    function startAutoplay() {
+      if (reduceMotion) return;
+      stopAutoplay();
+      timer = setInterval(function () { show(index + 1); }, AUTOPLAY_MS);
+    }
+    function stopAutoplay() { if (timer) { clearInterval(timer); timer = null; } }
+    function resetAutoplay() { stopAutoplay(); startAutoplay(); }
+
+    if (prevBtn) prevBtn.addEventListener('click', function () { show(index - 1); resetAutoplay(); });
+    if (nextBtn) nextBtn.addEventListener('click', function () { show(index + 1); resetAutoplay(); });
+
+    root.addEventListener('mouseenter', stopAutoplay);
+    root.addEventListener('mouseleave', startAutoplay);
+
+    // Touch swipe
+    var startX = 0;
+    root.addEventListener('touchstart', function (e) {
+      startX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    root.addEventListener('touchend', function (e) {
+      var diff = e.changedTouches[0].screenX - startX;
+      if (Math.abs(diff) > 40) {
+        if (diff > 0) show(index - 1); else show(index + 1);
+        resetAutoplay();
+      }
+    }, { passive: true });
+
+    startAutoplay();
+  });
+})();
+
 // ---- Mobile menu toggle ----
 (function () {
   var openBtn = document.getElementById('navToggle');
