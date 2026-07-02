@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { sql, ensureSchema } from "../lib/db.js";
 
 // Lazy init so we don't crash the module at import time if env vars are missing.
 let _resend = null;
@@ -154,6 +155,29 @@ export default async function handler(req, res) {
       });
     } catch (confirmErr) {
       console.warn("Confirmation email failed (non-fatal):", confirmErr);
+    }
+
+    // 3) Persist the lead to the DB (best-effort — never blocks the booking flow)
+    try {
+      if (sql) {
+        await ensureSchema();
+        await sql`
+          INSERT INTO leads (name, email, phone, service, "when", note, source_page, source, status)
+          VALUES (
+            ${name || ""},
+            ${email || ""},
+            ${phone || ""},
+            ${service || ""},
+            ${when || ""},
+            ${note || ""},
+            ${page || ""},
+            'booking-form',
+            'new'
+          )
+        `;
+      }
+    } catch (dbErr) {
+      console.warn("Lead DB insert failed (non-fatal):", dbErr && dbErr.message ? dbErr.message : dbErr);
     }
 
     return res.status(200).json({ ok: true });

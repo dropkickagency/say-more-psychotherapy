@@ -142,23 +142,66 @@
     </div>
   </section>
 
-  <!-- ============ COMING SOON ============ -->
-  <section class="section blog-soon" style="padding-top: var(--space-md);">
+  <!-- ============ POSTS LIST ============ -->
+  <section class="section" style="padding-top: var(--space-md);">
     <div class="wrap">
-      <div class="blog-soon__card">
-        <span class="blog-soon__chip">
-          <span class="emo emo--md">📝</span>
-          Blog
-        </span>
-        <h2>Coming <em class="italic">soon.</em></h2>
-        <p>We're putting together a small library of honest, considered notes on therapy, identity, parenting, anxiety, and the small things that change a week. Check back shortly — or get a free session in the meantime.</p>
-        <a href="consultation.html" class="btn btn--primary">
-          Get Free Session
-          <span class="arrow emo emo--sm">→</span>
-        </a>
+      <div id="postsList">
+        <div class="loading-note" style="padding: 40px 0; text-align: center; color: #7A6A5C;">Loading posts…</div>
       </div>
     </div>
   </section>
+
+  <script>
+    (async () => {
+      const listEl = document.getElementById("postsList");
+      try {
+        const res = await fetch("/api/posts", { headers: { Accept: "application/json" } });
+        const data = await res.json();
+        const posts = (data && data.posts) || [];
+        if (!posts.length) {
+          listEl.innerHTML = `
+            <div class="blog-soon__card">
+              <span class="blog-soon__chip">
+                <span class="emo emo--md">📝</span>
+                Blog
+              </span>
+              <h2>Coming <em class="italic">soon.</em></h2>
+              <p>We're putting together a small library of honest, considered notes on therapy, identity, parenting, anxiety, and the small things that change a week. Check back shortly — or get a free session in the meantime.</p>
+              <a href="consultation.html" class="btn btn--primary">
+                Get Your Free 15 Min. Session
+                <span class="arrow emo emo--sm">→</span>
+              </a>
+            </div>
+          `;
+          return;
+        }
+        const esc = (s) => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+        const fmt = (d) => d ? new Date(d).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "";
+        listEl.innerHTML = `<div class="post-grid">${posts.map(p => `
+          <article class="post-card">
+            <a class="post-card__link" href="/blog/${esc(p.slug)}">
+              ${p.cover_image ? `<div class="post-card__cover"><img src="${esc(p.cover_image)}" alt="${esc(p.title)}" loading="lazy" /></div>` : ""}
+              <div class="post-card__body">
+                <div class="post-card__meta"><time datetime="${esc(p.published_at || "")}">${esc(fmt(p.published_at))}</time></div>
+                <h3 class="post-card__title">${esc(p.title)}</h3>
+                ${p.excerpt || p.meta_description ? `<p class="post-card__excerpt">${esc(p.excerpt || p.meta_description)}</p>` : ""}
+                <span class="post-card__more">Read <span class="arrow">→</span></span>
+              </div>
+            </a>
+          </article>
+        `).join("")}</div>`;
+      } catch (err) {
+        console.error("Failed to load posts:", err);
+        listEl.innerHTML = `
+          <div class="blog-soon__card">
+            <h2>Posts coming <em class="italic">soon.</em></h2>
+            <p>We're getting the blog set up. Check back shortly.</p>
+            <a href="consultation.html" class="btn btn--primary">Get Your Free 15 Min. Session <span class="arrow emo emo--sm">→</span></a>
+          </div>
+        `;
+      }
+    })();
+  </script>
 
   <!-- ============ CTA ============ -->
   <section class="cta">
@@ -222,6 +265,7 @@
         <div>© 2026 Say More Psychotherapy · Established With Care</div>
         <div class="foot__bottom__links">
           <a href="#">Privacy</a>
+          <a href="/admin/login.html">Admin</a>
           <a href="#">CRPO Standards</a>
           <a href="#">Accessibility</a>
         </div>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blog — Say More Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <div class="admin">
+    <aside class="admin__sidebar" id="adminSidebar">
+      <div class="admin__brand">
+        <img src="/logo.jpg" alt="" />
+        <strong>Say More Admin</strong>
+      </div>
+      <nav class="admin__nav">
+        <a href="/admin/index.html">Overview</a>
+        <a href="/admin/leads.html">Leads</a>
+        <a href="/admin/blog.html">Blog</a>
+      </nav>
+      <div class="admin__sidebar-foot">
+        <a href="/" target="_blank" rel="noopener">View website ↗</a>
+        <button id="adminLogoutBtn" type="button">Sign out</button>
+      </div>
+    </aside>
+    <button class="admin__menu-toggle" id="adminMenuToggle" aria-label="Toggle menu">☰ Menu</button>
+
+    <main class="admin__main">
+      <div class="admin__header">
+        <div>
+          <h1 class="admin__title">Blog posts <small>Write, edit, and publish notes.</small></h1>
+        </div>
+        <div class="btn__row">
+          <a href="/blog.html" class="btn btn--ghost" target="_blank" rel="noopener">View public blog ↗</a>
+          <a href="/admin/blog-edit.html" class="btn">+ New post</a>
+        </div>
+      </div>
+
+      <div id="alert"></div>
+
+      <div class="table__wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Slug</th>
+              <th>Status</th>
+              <th>Updated</th>
+              <th>Published</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="postsBody">
+            <tr><td colspan="6" class="loading">Loading posts…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+  <script>
+    (async () => {
+      if (!(await requireSession())) return;
+      const alertBox = document.getElementById("alert");
+      const body = document.getElementById("postsBody");
+
+      async function load() {
+        try {
+          const data = await AdminAPI.get("/api/admin/posts");
+          if (!data.posts.length) {
+            body.innerHTML = `<tr><td colspan="6"><div class="empty">
+              <h3>No posts yet.</h3>
+              <p>Write your first note.</p>
+              <a href="/admin/blog-edit.html" class="btn" style="margin-top: 12px;">+ New post</a>
+            </div></td></tr>`;
+            return;
+          }
+          body.innerHTML = data.posts.map(p => `
+            <tr>
+              <td><a href="/admin/blog-edit.html?id=${p.id}"><strong>${escapeHtml(p.title)}</strong></a></td>
+              <td><small style="color:#7A6A5C; font-family: 'Inter', monospace;">/blog/${escapeHtml(p.slug)}</small></td>
+              <td>${publishChip(p.published)}</td>
+              <td><small style="color:#7A6A5C;">${escapeHtml(fmtRelative(p.updated_at))}</small></td>
+              <td><small style="color:#7A6A5C;">${p.published_at ? escapeHtml(fmtDate(p.published_at)) : "—"}</small></td>
+              <td class="actions">
+                ${p.published ? `<a href="/blog/${escapeHtml(p.slug)}" target="_blank" rel="noopener">View ↗</a>` : ""}
+                <a href="/admin/blog-edit.html?id=${p.id}">Edit</a>
+                <a href="#" class="delete-post" data-id="${p.id}" data-title="${escapeHtml(p.title)}" style="color: #B84C4C;">Delete</a>
+              </td>
+            </tr>
+          `).join("");
+
+          document.querySelectorAll(".delete-post").forEach(a => {
+            a.addEventListener("click", async (e) => {
+              e.preventDefault();
+              const id = a.dataset.id;
+              const title = a.dataset.title;
+              if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
+              try {
+                await AdminAPI.del(`/api/admin/posts?id=${id}`);
+                await load();
+              } catch (err) {
+                showAlert(alertBox, err.message, "error");
+              }
+            });
+          });
+        } catch (err) {
+          showAlert(alertBox, "Couldn't load posts: " + err.message, "error");
+          body.innerHTML = "<tr><td colspan='6'><div class='empty'><h3>Unable to load posts</h3></div></td></tr>";
+        }
+      }
+      load();
+    })();
+  </script>
+</body>
+</html>

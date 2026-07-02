@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Overview — Say More Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <div class="admin">
+    <aside class="admin__sidebar" id="adminSidebar">
+      <div class="admin__brand">
+        <img src="/logo.jpg" alt="" />
+        <strong>Say More Admin</strong>
+      </div>
+      <nav class="admin__nav">
+        <a href="/admin/index.html">Overview</a>
+        <a href="/admin/leads.html">Leads</a>
+        <a href="/admin/blog.html">Blog</a>
+      </nav>
+      <div class="admin__sidebar-foot">
+        <a href="/" target="_blank" rel="noopener">View website ↗</a>
+        <button id="adminLogoutBtn" type="button">Sign out</button>
+      </div>
+    </aside>
+    <button class="admin__menu-toggle" id="adminMenuToggle" aria-label="Toggle menu">☰ Menu</button>
+
+    <main class="admin__main">
+      <div class="admin__header">
+        <div>
+          <h1 class="admin__title">Overview <small>What's happening this week.</small></h1>
+        </div>
+        <div class="btn__row">
+          <a href="/admin/blog.html" class="btn btn--ghost">Manage blog</a>
+          <a href="/admin/leads.html" class="btn">View all leads</a>
+        </div>
+      </div>
+
+      <div id="alert"></div>
+
+      <div class="stat-grid" id="statGrid">
+        <div class="stat"><div class="stat__label">New leads</div><div class="stat__value" id="statNew">—</div><div class="stat__hint">Not yet contacted</div></div>
+        <div class="stat"><div class="stat__label">Last 7 days</div><div class="stat__value" id="statWeek">—</div><div class="stat__hint">New leads received</div></div>
+        <div class="stat"><div class="stat__label">Total leads</div><div class="stat__value" id="statTotal">—</div><div class="stat__hint">All-time</div></div>
+        <div class="stat"><div class="stat__label">Published posts</div><div class="stat__value" id="statPublished">—</div><div class="stat__hint" id="statPostsHint">on the blog</div></div>
+      </div>
+
+      <div class="two-col">
+        <section class="card">
+          <div class="card__title-row">
+            <h2 class="card__title">Recent leads</h2>
+            <a href="/admin/leads.html" class="btn btn--ghost btn--sm">See all</a>
+          </div>
+          <div id="recentLeads" class="loading">Loading…</div>
+        </section>
+
+        <section class="card">
+          <div class="card__title-row">
+            <h2 class="card__title">Recent posts</h2>
+            <a href="/admin/blog-edit.html" class="btn btn--ghost btn--sm">+ New post</a>
+          </div>
+          <div id="recentPosts" class="loading">Loading…</div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+  <script>
+    (async () => {
+      if (!(await requireSession())) return;
+      const alertBox = document.getElementById("alert");
+      try {
+        const data = await AdminAPI.get("/api/admin/overview");
+        document.getElementById("statNew").textContent = data.stats.newLeads;
+        document.getElementById("statWeek").textContent = data.stats.weekLeads;
+        document.getElementById("statTotal").textContent = data.stats.totalLeads;
+        document.getElementById("statPublished").textContent = data.stats.publishedPosts;
+        document.getElementById("statPostsHint").textContent = `${data.stats.totalPosts} total (incl. drafts)`;
+
+        const leadsEl = document.getElementById("recentLeads");
+        if (!data.recentLeads.length) {
+          leadsEl.className = "empty";
+          leadsEl.innerHTML = "<h3>No leads yet.</h3><p>New booking-form submissions will appear here.</p>";
+        } else {
+          leadsEl.className = "";
+          leadsEl.innerHTML = `<table class="table"><thead><tr>
+            <th>Name</th><th>Service</th><th>Status</th><th>Received</th>
+          </tr></thead><tbody>${
+            data.recentLeads.map(l => `<tr>
+              <td><a href="/admin/leads.html#lead-${l.id}"><strong>${escapeHtml(l.name)}</strong></a><br><small style="color:#7A6A5C;">${escapeHtml(l.email || "no email")}</small></td>
+              <td>${escapeHtml(l.service || "—")}</td>
+              <td>${statusChip(l.status)}</td>
+              <td><small style="color:#7A6A5C;" title="${escapeHtml(fmtDateTime(l.created_at))}">${escapeHtml(fmtRelative(l.created_at))}</small></td>
+            </tr>`).join("")
+          }</tbody></table>`;
+        }
+
+        const postsEl = document.getElementById("recentPosts");
+        if (!data.recentPosts.length) {
+          postsEl.className = "empty";
+          postsEl.innerHTML = "<h3>No posts yet.</h3><p><a href='/admin/blog-edit.html' class='btn btn--sm'>+ Write your first post</a></p>";
+        } else {
+          postsEl.className = "";
+          postsEl.innerHTML = `<table class="table"><thead><tr>
+            <th>Title</th><th>Status</th><th>Updated</th>
+          </tr></thead><tbody>${
+            data.recentPosts.map(p => `<tr>
+              <td><a href="/admin/blog-edit.html?id=${p.id}"><strong>${escapeHtml(p.title)}</strong></a><br><small style="color:#7A6A5C;">/blog/${escapeHtml(p.slug)}</small></td>
+              <td>${publishChip(p.published)}</td>
+              <td><small style="color:#7A6A5C;" title="${escapeHtml(fmtDateTime(p.updated_at))}">${escapeHtml(fmtRelative(p.updated_at))}</small></td>
+            </tr>`).join("")
+          }</tbody></table>`;
+        }
+      } catch (err) {
+        showAlert(alertBox, "Couldn't load dashboard: " + err.message, "error");
+        // Also blank the stats
+        ["statNew","statWeek","statTotal","statPublished"].forEach(id => document.getElementById(id).textContent = "—");
+        document.getElementById("recentLeads").innerHTML = "<div class='empty'><p>Data unavailable right now.</p></div>";
+        document.getElementById("recentPosts").innerHTML = "<div class='empty'><p>Data unavailable right now.</p></div>";
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Edit post — Say More Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <style>
+    .seo-preview {
+      background: #FFFFFF;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+      padding: 14px 16px;
+      font-size: 13px;
+    }
+    .seo-preview__title { color: #1a0dab; font-size: 16px; font-weight: 500; margin-bottom: 3px; line-height: 1.3; }
+    .seo-preview__url { color: #006621; font-size: 12px; margin-bottom: 4px; }
+    .seo-preview__desc { color: #545454; font-size: 12.5px; line-height: 1.4; }
+    .char-count { font-size: 11px; color: var(--admin-muted); margin-top: 4px; }
+    .char-count.warn { color: var(--admin-warn); }
+    .char-count.err { color: var(--admin-danger); }
+    .md-help {
+      background: #FBF9F4;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--admin-muted);
+      margin-top: 6px;
+    }
+    .md-help code {
+      background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 3px;
+      font-family: 'Inter', ui-monospace, monospace; color: var(--admin-brand-dark);
+    }
+  </style>
+</head>
+<body>
+  <div class="admin">
+    <aside class="admin__sidebar" id="adminSidebar">
+      <div class="admin__brand">
+        <img src="/logo.jpg" alt="" />
+        <strong>Say More Admin</strong>
+      </div>
+      <nav class="admin__nav">
+        <a href="/admin/index.html">Overview</a>
+        <a href="/admin/leads.html">Leads</a>
+        <a href="/admin/blog.html">Blog</a>
+      </nav>
+      <div class="admin__sidebar-foot">
+        <a href="/" target="_blank" rel="noopener">View website ↗</a>
+        <button id="adminLogoutBtn" type="button">Sign out</button>
+      </div>
+    </aside>
+    <button class="admin__menu-toggle" id="adminMenuToggle" aria-label="Toggle menu">☰ Menu</button>
+
+    <main class="admin__main">
+      <div class="admin__header">
+        <div>
+          <h1 class="admin__title" id="pageTitle">New post</h1>
+        </div>
+        <div class="btn__row">
+          <a href="/admin/blog.html" class="btn btn--ghost">← All posts</a>
+          <a id="viewLive" class="btn btn--ghost hidden" target="_blank" rel="noopener">View live ↗</a>
+        </div>
+      </div>
+
+      <div id="alert"></div>
+
+      <div class="editor">
+        <div class="editor__main">
+          <div class="card">
+            <div class="field">
+              <label for="title">Title <span class="hint">— shown as the H1 and page title</span></label>
+              <input type="text" id="title" placeholder="e.g., What therapy actually is (and isn't)" required />
+            </div>
+
+            <div class="field">
+              <label for="excerpt">Excerpt <span class="hint">— 1–2 sentence teaser shown on the blog list</span></label>
+              <textarea id="excerpt" rows="2" placeholder="A short, considered summary…"></textarea>
+              <div class="char-count" id="excerptCount">0 / 200 recommended</div>
+            </div>
+
+            <div class="tabs" role="tablist">
+              <button type="button" class="is-active" data-tab="write">Write</button>
+              <button type="button" data-tab="preview">Preview</button>
+            </div>
+
+            <div id="tabWrite">
+              <div class="field">
+                <textarea id="body" class="editor__body" placeholder="Write your post here. Markdown supported — see the tips below."></textarea>
+                <div class="md-help">
+                  <strong>Markdown quick reference:</strong>
+                  <code># Heading 1</code> · <code>## Heading 2</code> · <code>**bold**</code> · <code>*italic*</code> ·
+                  <code>[link](https://…)</code> · <code>- list item</code> · <code>> quote</code> ·
+                  <code>`inline code`</code>. Blank lines separate paragraphs. HTML is also allowed if you switch the format below.
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="body_format">Body format</label>
+                <select id="body_format">
+                  <option value="markdown" selected>Markdown (recommended)</option>
+                  <option value="html">HTML (for advanced use)</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="tabPreview" class="hidden">
+              <div class="preview-panel" id="previewPanel">
+                <p style="color: var(--admin-muted);">Nothing to preview yet — write something on the Write tab.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="editor__side">
+          <div class="card editor__meta">
+            <h3 class="card__title">Publish</h3>
+            <div class="field__check">
+              <input type="checkbox" id="published" />
+              <label for="published" style="margin: 0; text-transform: none; letter-spacing: 0; color: var(--admin-ink);">
+                Published on the blog
+              </label>
+            </div>
+            <div class="btn__row" style="margin-top: 14px;">
+              <button type="button" class="btn" id="saveBtn">Save</button>
+              <button type="button" class="btn btn--ghost" id="saveDraftBtn">Save as draft</button>
+            </div>
+            <div id="saveHint" style="margin-top: 10px; font-size: 12px; color: var(--admin-muted);"></div>
+          </div>
+
+          <div class="card">
+            <h3 class="card__title">SEO</h3>
+
+            <div class="field">
+              <label for="slug">URL slug <span class="hint">— lowercase, dashes only</span></label>
+              <input type="text" id="slug" placeholder="what-therapy-actually-is" />
+              <div class="slug-preview" id="slugPreview">/blog/…</div>
+            </div>
+
+            <div class="field">
+              <label for="meta_description">Meta description <span class="hint">— shown by Google under the title</span></label>
+              <textarea id="meta_description" rows="3" placeholder="A single, specific sentence about what this post gives the reader."></textarea>
+              <div class="char-count" id="metaCount">0 / 155–160 ideal</div>
+            </div>
+
+            <div class="field">
+              <label for="keywords">Keywords <span class="hint">— comma-separated, less critical for ranking</span></label>
+              <input type="text" id="keywords" placeholder="therapy, anxiety, brampton" />
+            </div>
+
+            <div class="field">
+              <label for="cover_image">Cover image URL <span class="hint">— shown at the top of the post</span></label>
+              <input type="url" id="cover_image" placeholder="https://…" />
+            </div>
+
+            <div class="field">
+              <label for="og_image">Social share image URL <span class="hint">— defaults to cover image</span></label>
+              <input type="url" id="og_image" placeholder="https://…" />
+            </div>
+
+            <div class="field">
+              <label for="canonical_url">Canonical URL <span class="hint">— leave blank unless copied from elsewhere</span></label>
+              <input type="url" id="canonical_url" placeholder="" />
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card__title">Google preview</h3>
+            <div class="seo-preview" id="seoPreview">
+              <div class="seo-preview__title" id="previewTitle">Your title here — Say More Psychotherapy</div>
+              <div class="seo-preview__url" id="previewUrl">https://www.saymorepsychotherapy.ca › blog › your-slug</div>
+              <div class="seo-preview__desc" id="previewDesc">Your meta description will appear here as it would in a Google search result.</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+  <script>
+    // Small markdown renderer for the live preview — matches the server-side one closely.
+    function inlineMd(s) {
+      let x = escapeHtml(s);
+      x = x.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      x = x.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      x = x.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+      x = x.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
+      x = x.replace(/(^|[^_])_([^_]+)_(?!_)/g, "$1<em>$2</em>");
+      x = x.replace(/`([^`]+)`/g, "<code>$1</code>");
+      return x;
+    }
+
+    function renderMarkdownPreview(md) {
+      if (!md) return "";
+      const src = String(md).replace(/\r\n/g, "\n").trim();
+      const blocks = src.split(/\n{2,}/);
+      const out = [];
+      for (let block of blocks) {
+        block = block.trim();
+        if (!block) continue;
+        let m;
+        if ((m = block.match(/^######\s+(.+)$/))) { out.push(`<h6>${inlineMd(m[1])}</h6>`); continue; }
+        if ((m = block.match(/^#####\s+(.+)$/)))  { out.push(`<h5>${inlineMd(m[1])}</h5>`); continue; }
+        if ((m = block.match(/^####\s+(.+)$/)))   { out.push(`<h4>${inlineMd(m[1])}</h4>`); continue; }
+        if ((m = block.match(/^###\s+(.+)$/)))    { out.push(`<h3>${inlineMd(m[1])}</h3>`); continue; }
+        if ((m = block.match(/^##\s+(.+)$/)))     { out.push(`<h2>${inlineMd(m[1])}</h2>`); continue; }
+        if ((m = block.match(/^#\s+(.+)$/)))      { out.push(`<h2>${inlineMd(m[1])}</h2>`); continue; }
+        if (/^>\s?/.test(block)) {
+          const body = block.split("\n").map(l => l.replace(/^>\s?/, "")).join(" ");
+          out.push(`<blockquote>${inlineMd(body)}</blockquote>`); continue;
+        }
+        if (/^([-*])\s+/.test(block)) {
+          const items = block.split("\n").filter(Boolean).map(l => l.replace(/^([-*])\s+/, "")).map(inlineMd);
+          out.push(`<ul>${items.map(i => `<li>${i}</li>`).join("")}</ul>`); continue;
+        }
+        if (/^\d+\.\s+/.test(block)) {
+          const items = block.split("\n").filter(Boolean).map(l => l.replace(/^\d+\.\s+/, "")).map(inlineMd);
+          out.push(`<ol>${items.map(i => `<li>${i}</li>`).join("")}</ol>`); continue;
+        }
+        if (/^(-{3,}|\*{3,}|_{3,})$/.test(block)) { out.push("<hr>"); continue; }
+        if (/^<(p|div|section|article|figure|img|table|iframe|blockquote|h[1-6]|ul|ol)\b/i.test(block)) { out.push(block); continue; }
+        out.push(`<p>${inlineMd(block).replace(/\n/g, "<br>")}</p>`);
+      }
+      return out.join("\n");
+    }
+
+    function slugify(s) {
+      return String(s || "").toLowerCase().trim()
+        .replace(/['"]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80);
+    }
+
+    const state = {
+      id: null,
+      slugTouched: false,
+      dirty: false,
+    };
+
+    function updatePreview() {
+      const title = document.getElementById("title").value.trim();
+      const slug = document.getElementById("slug").value.trim() || "your-slug";
+      const meta = document.getElementById("meta_description").value.trim();
+      const excerpt = document.getElementById("excerpt").value.trim();
+      const bodyFormat = document.getElementById("body_format").value;
+      const body = document.getElementById("body").value;
+
+      // SEO preview
+      document.getElementById("previewTitle").textContent =
+        (title || "Your title here") + " — Say More Psychotherapy";
+      document.getElementById("previewUrl").textContent =
+        `https://www.saymorepsychotherapy.ca › blog › ${slug}`;
+      document.getElementById("previewDesc").textContent =
+        meta || excerpt || "Your meta description will appear here as it would in a Google search result.";
+
+      // Slug preview
+      document.getElementById("slugPreview").textContent =
+        `/blog/${slug}`;
+
+      // Body preview
+      const panel = document.getElementById("previewPanel");
+      const rendered = bodyFormat === "html" ? body : renderMarkdownPreview(body);
+      panel.innerHTML = rendered || `<p style="color: var(--admin-muted);">Nothing to preview yet — write something on the Write tab.</p>`;
+
+      // Char counts
+      const metaLen = meta.length;
+      const mc = document.getElementById("metaCount");
+      mc.textContent = `${metaLen} / 155–160 ideal`;
+      mc.className = "char-count" + (metaLen > 160 ? " err" : metaLen > 155 ? " warn" : "");
+
+      const exLen = excerpt.length;
+      const ec = document.getElementById("excerptCount");
+      ec.textContent = `${exLen} / 200 recommended`;
+      ec.className = "char-count" + (exLen > 240 ? " err" : exLen > 200 ? " warn" : "");
+    }
+
+    function bindLive() {
+      const ids = ["title","slug","meta_description","keywords","cover_image","og_image","canonical_url","excerpt","body","body_format","published"];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener("input", () => { state.dirty = true; updatePreview(); });
+        el.addEventListener("change", () => { state.dirty = true; updatePreview(); });
+      });
+
+      // Auto-slug from title while slug hasn't been manually touched
+      document.getElementById("title").addEventListener("input", () => {
+        if (!state.slugTouched && !state.id) {
+          document.getElementById("slug").value = slugify(document.getElementById("title").value);
+          updatePreview();
+        }
+      });
+      document.getElementById("slug").addEventListener("input", () => {
+        state.slugTouched = true;
+        // Enforce slug-safe chars as they type
+        const v = document.getElementById("slug").value;
+        const cleaned = v.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "");
+        if (v !== cleaned) document.getElementById("slug").value = cleaned;
+      });
+
+      // Tabs
+      document.querySelectorAll(".tabs button").forEach(b => {
+        b.addEventListener("click", () => {
+          document.querySelectorAll(".tabs button").forEach(x => x.classList.remove("is-active"));
+          b.classList.add("is-active");
+          const tab = b.dataset.tab;
+          document.getElementById("tabWrite").classList.toggle("hidden", tab !== "write");
+          document.getElementById("tabPreview").classList.toggle("hidden", tab !== "preview");
+          if (tab === "preview") updatePreview();
+        });
+      });
+    }
+
+    async function loadExisting(id) {
+      try {
+        const { post } = await AdminAPI.get(`/api/admin/posts?id=${id}`);
+        state.id = post.id;
+        state.slugTouched = true;
+        document.getElementById("pageTitle").textContent = "Edit post";
+        document.getElementById("title").value = post.title || "";
+        document.getElementById("slug").value = post.slug || "";
+        document.getElementById("meta_description").value = post.meta_description || "";
+        document.getElementById("keywords").value = post.keywords || "";
+        document.getElementById("cover_image").value = post.cover_image || "";
+        document.getElementById("og_image").value = post.og_image || "";
+        document.getElementById("canonical_url").value = post.canonical_url || "";
+        document.getElementById("excerpt").value = post.excerpt || "";
+        document.getElementById("body").value = post.body || "";
+        document.getElementById("body_format").value = post.body_format || "markdown";
+        document.getElementById("published").checked = !!post.published;
+
+        if (post.published) {
+          const link = document.getElementById("viewLive");
+          link.href = `/blog/${post.slug}`;
+          link.classList.remove("hidden");
+        }
+
+        updatePreview();
+      } catch (err) {
+        showAlert(document.getElementById("alert"), "Couldn't load post: " + err.message, "error");
+      }
+    }
+
+    async function save(asDraft) {
+      const alertBox = document.getElementById("alert");
+      const saveBtn = document.getElementById("saveBtn");
+      const draftBtn = document.getElementById("saveDraftBtn");
+      const hint = document.getElementById("saveHint");
+      alertBox.innerHTML = "";
+      hint.textContent = "";
+
+      const title = document.getElementById("title").value.trim();
+      if (!title) {
+        showAlert(alertBox, "Title is required.", "error");
+        return;
+      }
+
+      const payload = {
+        title,
+        slug: document.getElementById("slug").value.trim() || slugify(title),
+        meta_description: document.getElementById("meta_description").value.trim(),
+        keywords: document.getElementById("keywords").value.trim(),
+        cover_image: document.getElementById("cover_image").value.trim(),
+        og_image: document.getElementById("og_image").value.trim(),
+        canonical_url: document.getElementById("canonical_url").value.trim(),
+        excerpt: document.getElementById("excerpt").value.trim(),
+        body: document.getElementById("body").value,
+        body_format: document.getElementById("body_format").value,
+        published: asDraft ? false : document.getElementById("published").checked,
+      };
+      if (asDraft) document.getElementById("published").checked = false;
+
+      saveBtn.disabled = true; draftBtn.disabled = true;
+      saveBtn.textContent = "Saving…";
+      try {
+        if (state.id) {
+          await AdminAPI.patch("/api/admin/posts", { id: state.id, ...payload });
+          showAlert(alertBox, payload.published ? "Saved and published." : "Saved.", "success");
+        } else {
+          const res = await AdminAPI.post("/api/admin/posts", payload);
+          state.id = res.id;
+          // Move to editing that record without reloading form state
+          const url = new URL(window.location.href);
+          url.searchParams.set("id", res.id);
+          window.history.replaceState({}, "", url.toString());
+          document.getElementById("pageTitle").textContent = "Edit post";
+          showAlert(alertBox, payload.published ? "Post created and published." : "Draft created.", "success");
+        }
+        state.dirty = false;
+
+        // Update "View live" link visibility
+        const link = document.getElementById("viewLive");
+        if (payload.published) {
+          link.href = `/blog/${payload.slug}`;
+          link.classList.remove("hidden");
+        } else {
+          link.classList.add("hidden");
+        }
+      } catch (err) {
+        showAlert(alertBox, err.message, "error");
+      } finally {
+        saveBtn.disabled = false; draftBtn.disabled = false;
+        saveBtn.textContent = "Save";
+      }
+    }
+
+    (async () => {
+      if (!(await requireSession())) return;
+      bindLive();
+      const params = new URLSearchParams(location.search);
+      const id = params.get("id");
+      if (id) await loadExisting(id);
+      updatePreview();
+
+      document.getElementById("saveBtn").addEventListener("click", () => save(false));
+      document.getElementById("saveDraftBtn").addEventListener("click", () => save(true));
+
+      // Warn on unsaved changes
+      window.addEventListener("beforeunload", (e) => {
+        if (state.dirty) { e.preventDefault(); e.returnValue = ""; }
+      });
+    })();
+  </script>
+</body>
+</html>

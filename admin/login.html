@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in — Say More Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-card__logo"><img src="/logo.jpg" alt="Say More Psychotherapy" /></div>
+      <h1>Say More <em style="font-style: italic; color: #745236;">admin</em></h1>
+      <p class="login-card__sub">Sign in to manage leads and blog posts.</p>
+
+      <div id="alert"></div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required autofocus />
+        </div>
+        <button type="submit" class="btn" style="width: 100%; justify-content: center;">Sign in</button>
+      </form>
+
+      <p style="text-align: center; margin-top: 20px; margin-bottom: 0;">
+        <a href="/" style="font-size: 13px; color: #7A6A5C;">← Back to website</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      // If already signed in, jump straight to dashboard (respect ?next=)
+      try {
+        const sess = await AdminAPI.get("/api/admin/session");
+        if (sess.authenticated) {
+          const params = new URLSearchParams(location.search);
+          const next = params.get("next") || "/admin/index.html";
+          window.location.href = next;
+          return;
+        }
+      } catch { /* proceed to login */ }
+
+      const form = document.getElementById("loginForm");
+      const alertBox = document.getElementById("alert");
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        alertBox.innerHTML = "";
+        const password = document.getElementById("password").value;
+        const btn = form.querySelector("button");
+        const orig = btn.textContent;
+        btn.disabled = true; btn.textContent = "Signing in…";
+        try {
+          await AdminAPI.post("/api/admin/login", { password });
+          const params = new URLSearchParams(location.search);
+          const next = params.get("next") || "/admin/index.html";
+          window.location.href = next;
+        } catch (err) {
+          showAlert(alertBox, err.message || "Wrong password.", "error");
+          btn.disabled = false; btn.textContent = orig;
+          document.getElementById("password").value = "";
+          document.getElementById("password").focus();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

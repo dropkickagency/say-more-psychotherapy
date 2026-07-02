@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Leads — Say More Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <style>
+    .lead-row td { vertical-align: middle; }
+    .lead-detail {
+      background: #FBF9F4;
+      border-top: 1px solid var(--admin-border);
+    }
+    .lead-detail td {
+      padding: 16px 20px;
+    }
+    .lead-detail__grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 700px) { .lead-detail__grid { grid-template-columns: 1fr; } }
+    .lead-detail dt {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--admin-muted); font-weight: 600; margin-bottom: 2px;
+    }
+    .lead-detail dd { margin: 0 0 12px; font-size: 14px; }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .filter-btn {
+      padding: 6px 14px; border-radius: 999px;
+      background: #FFFFFF; border: 1px solid var(--admin-border-strong);
+      cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500;
+      color: var(--admin-muted);
+    }
+    .filter-btn.is-active { background: var(--admin-brand); color: #FFFFFF; border-color: var(--admin-brand); }
+  </style>
+</head>
+<body>
+  <div class="admin">
+    <aside class="admin__sidebar" id="adminSidebar">
+      <div class="admin__brand">
+        <img src="/logo.jpg" alt="" />
+        <strong>Say More Admin</strong>
+      </div>
+      <nav class="admin__nav">
+        <a href="/admin/index.html">Overview</a>
+        <a href="/admin/leads.html">Leads</a>
+        <a href="/admin/blog.html">Blog</a>
+      </nav>
+      <div class="admin__sidebar-foot">
+        <a href="/" target="_blank" rel="noopener">View website ↗</a>
+        <button id="adminLogoutBtn" type="button">Sign out</button>
+      </div>
+    </aside>
+    <button class="admin__menu-toggle" id="adminMenuToggle" aria-label="Toggle menu">☰ Menu</button>
+
+    <main class="admin__main">
+      <div class="admin__header">
+        <div>
+          <h1 class="admin__title">Leads <small>Booking-form submissions & inbound inquiries.</small></h1>
+        </div>
+      </div>
+
+      <div id="alert"></div>
+
+      <div class="filters" id="filters">
+        <button class="filter-btn is-active" data-status="">All</button>
+        <button class="filter-btn" data-status="new">New</button>
+        <button class="filter-btn" data-status="contacted">Contacted</button>
+        <button class="filter-btn" data-status="converted">Converted</button>
+        <button class="filter-btn" data-status="lost">Lost</button>
+      </div>
+
+      <div class="table__wrap">
+        <table class="table" id="leadsTable">
+          <thead>
+            <tr>
+              <th style="width:32px;"></th>
+              <th>Name</th>
+              <th>Contact</th>
+              <th>Service</th>
+              <th>Status</th>
+              <th>Received</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="leadsBody">
+            <tr><td colspan="7" class="loading">Loading leads…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+  <script>
+    const state = { leads: [], filter: "", expanded: new Set() };
+
+    function render() {
+      const body = document.getElementById("leadsBody");
+      const rows = state.leads.filter(l => !state.filter || l.status === state.filter);
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="7"><div class="empty"><h3>No ${state.filter || ""} leads.</h3><p>New booking-form submissions will appear here.</p></div></td></tr>`;
+        return;
+      }
+      body.innerHTML = rows.map(l => renderRow(l)).join("");
+      bindRowEvents();
+    }
+
+    function renderRow(l) {
+      const isOpen = state.expanded.has(l.id);
+      const html = [`
+        <tr id="lead-${l.id}" class="lead-row" data-id="${l.id}">
+          <td><button class="btn btn--ghost btn--sm toggle-btn" data-id="${l.id}" aria-label="Expand">${isOpen ? "−" : "+"}</button></td>
+          <td><strong>${escapeHtml(l.name)}</strong></td>
+          <td>
+            ${l.phone ? `<div><a href="tel:${escapeHtml(l.phone)}">${escapeHtml(l.phone)}</a></div>` : ""}
+            ${l.email ? `<div><a href="mailto:${escapeHtml(l.email)}">${escapeHtml(l.email)}</a></div>` : ""}
+          </td>
+          <td>${escapeHtml(l.service || "—")}</td>
+          <td>${statusChip(l.status)}</td>
+          <td><small style="color:#7A6A5C;" title="${escapeHtml(fmtDateTime(l.created_at))}">${escapeHtml(fmtRelative(l.created_at))}</small></td>
+          <td class="actions">
+            <button class="btn btn--ghost btn--sm toggle-btn" data-id="${l.id}">${isOpen ? "Close" : "Open"}</button>
+          </td>
+        </tr>
+      `];
+      if (isOpen) {
+        html.push(`
+          <tr class="lead-detail" data-detail-for="${l.id}">
+            <td colspan="7">
+              <div class="lead-detail__grid">
+                <div>
+                  <dl>
+                    <dt>Received via</dt>
+                    <dd>${escapeHtml(l.source_page || "—")}</dd>
+                    <dt>Preferred time</dt>
+                    <dd>${escapeHtml(l.when || "—")}</dd>
+                    <dt>Their message</dt>
+                    <dd style="white-space: pre-wrap;">${escapeHtml(l.note || "—")}</dd>
+                  </dl>
+                </div>
+                <div>
+                  <div class="field">
+                    <label for="status-${l.id}">Status</label>
+                    <select id="status-${l.id}" data-id="${l.id}" class="status-select">
+                      <option value="new" ${l.status === "new" ? "selected" : ""}>New</option>
+                      <option value="contacted" ${l.status === "contacted" ? "selected" : ""}>Contacted</option>
+                      <option value="converted" ${l.status === "converted" ? "selected" : ""}>Converted (booked)</option>
+                      <option value="lost" ${l.status === "lost" ? "selected" : ""}>Lost</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="notes-${l.id}">Your notes <span class="hint">(only visible to you)</span></label>
+                    <textarea id="notes-${l.id}" data-id="${l.id}" class="notes-input" rows="4">${escapeHtml(l.admin_notes || "")}</textarea>
+                  </div>
+                  <div class="btn__row">
+                    <button class="btn save-btn" data-id="${l.id}">Save</button>
+                    <button class="btn btn--ghost delete-btn" data-id="${l.id}">Delete</button>
+                    ${l.phone ? `<a class="btn btn--ghost" href="tel:${escapeHtml(l.phone)}">Call</a>` : ""}
+                    ${l.email ? `<a class="btn btn--ghost" href="mailto:${escapeHtml(l.email)}">Email</a>` : ""}
+                  </div>
+                  <div id="save-msg-${l.id}" style="margin-top: 8px;"></div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        `);
+      }
+      return html.join("");
+    }
+
+    function bindRowEvents() {
+      document.querySelectorAll(".toggle-btn").forEach(b => {
+        b.addEventListener("click", () => {
+          const id = Number(b.dataset.id);
+          if (state.expanded.has(id)) state.expanded.delete(id);
+          else state.expanded.add(id);
+          render();
+        });
+      });
+      document.querySelectorAll(".save-btn").forEach(b => {
+        b.addEventListener("click", async () => {
+          const id = Number(b.dataset.id);
+          const status = document.getElementById(`status-${id}`).value;
+          const admin_notes = document.getElementById(`notes-${id}`).value;
+          const msgBox = document.getElementById(`save-msg-${id}`);
+          b.disabled = true; b.textContent = "Saving…";
+          try {
+            await AdminAPI.patch("/api/admin/leads", { id, status, admin_notes });
+            const lead = state.leads.find(l => l.id === id);
+            if (lead) { lead.status = status; lead.admin_notes = admin_notes; }
+            showAlert(msgBox, "Saved.", "success");
+            // Update the chip in the row header
+            const row = document.getElementById(`lead-${id}`);
+            if (row) row.querySelector(".chip").outerHTML = statusChip(status);
+          } catch (err) {
+            showAlert(msgBox, err.message, "error");
+          } finally {
+            b.disabled = false; b.textContent = "Save";
+          }
+        });
+      });
+      document.querySelectorAll(".delete-btn").forEach(b => {
+        b.addEventListener("click", async () => {
+          const id = Number(b.dataset.id);
+          if (!confirm("Delete this lead? This can't be undone.")) return;
+          b.disabled = true;
+          try {
+            await AdminAPI.del(`/api/admin/leads?id=${id}`);
+            state.leads = state.leads.filter(l => l.id !== id);
+            state.expanded.delete(id);
+            render();
+          } catch (err) {
+            b.disabled = false;
+            showAlert(document.getElementById("alert"), err.message, "error");
+          }
+        });
+      });
+    }
+
+    (async () => {
+      if (!(await requireSession())) return;
+      const alertBox = document.getElementById("alert");
+      try {
+        const data = await AdminAPI.get("/api/admin/leads");
+        state.leads = data.leads || [];
+        render();
+
+        // If URL has #lead-N, expand that one
+        const hash = window.location.hash;
+        const m = hash.match(/^#lead-(\d+)$/);
+        if (m) {
+          const id = Number(m[1]);
+          state.expanded.add(id);
+          render();
+          const el = document.getElementById(`lead-${id}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      } catch (err) {
+        showAlert(alertBox, "Couldn't load leads: " + err.message, "error");
+        document.getElementById("leadsBody").innerHTML =
+          "<tr><td colspan='7'><div class='empty'><h3>Unable to load leads</h3><p>Check that the database is configured.</p></div></td></tr>";
+      }
+
+      document.querySelectorAll(".filter-btn").forEach(b => {
+        b.addEventListener("click", () => {
+          document.querySelectorAll(".filter-btn").forEach(x => x.classList.remove("is-active"));
+          b.classList.add("is-active");
+          state.filter = b.dataset.status;
+          render();
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
