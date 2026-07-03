@@ -89,6 +89,24 @@
 
       <div id="alert"></div>
 
+      <div class="stat-grid" style="margin-bottom: 20px;">
+        <div class="stat">
+          <div class="stat__label">Total leads</div>
+          <div class="stat__value" id="statLeadsTotal">—</div>
+          <div class="stat__hint">All-time</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">New</div>
+          <div class="stat__value" id="statLeadsNew">—</div>
+          <div class="stat__hint">Not yet contacted</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">Converted</div>
+          <div class="stat__value" id="statLeadsConverted">—</div>
+          <div class="stat__hint">Booked a session</div>
+        </div>
+      </div>
+
       <div class="filters" id="filters">
         <div class="filter-group">
           <span class="filter-group__label">Status</span>
@@ -305,6 +323,10 @@
       try {
         const data = await AdminAPI.get("/api/admin/leads");
         state.leads = data.leads || [];
+        // Populate stat cards from the loaded list
+        document.getElementById("statLeadsTotal").textContent = state.leads.length;
+        document.getElementById("statLeadsNew").textContent = state.leads.filter(l => l.status === "new").length;
+        document.getElementById("statLeadsConverted").textContent = state.leads.filter(l => l.status === "converted").length;
         buildSourceFilters();
         render();
 

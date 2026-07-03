@@ -52,6 +52,24 @@
 
       <div id="alert"></div>
 
+      <div class="stat-grid" style="margin-bottom: 20px;">
+        <div class="stat">
+          <div class="stat__label">Total posts</div>
+          <div class="stat__value" id="statPostsTotal">—</div>
+          <div class="stat__hint">Published + drafts</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">Published</div>
+          <div class="stat__value" id="statPostsPublished">—</div>
+          <div class="stat__hint">Live on the blog</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">Drafts</div>
+          <div class="stat__value" id="statPostsDrafts">—</div>
+          <div class="stat__hint">Not published yet</div>
+        </div>
+      </div>
+
       <div class="table__wrap">
         <table class="table">
           <thead>
@@ -82,6 +100,10 @@
       async function load() {
         try {
           const data = await AdminAPI.get("/api/admin/posts");
+          // Populate stat cards
+          document.getElementById("statPostsTotal").textContent = data.posts.length;
+          document.getElementById("statPostsPublished").textContent = data.posts.filter(p => p.published).length;
+          document.getElementById("statPostsDrafts").textContent = data.posts.filter(p => !p.published).length;
           if (!data.posts.length) {
             body.innerHTML = `<tr><td colspan="6"><div class="empty">
               <h3>No posts yet.</h3>
