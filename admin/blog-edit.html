@@ -955,6 +955,10 @@
       } else {
         const res = await AdminAPI.post("/api/admin/posts", payload);
         state.id = res.id;
+        if (res.slug) {
+          document.getElementById("slug").value = res.slug;
+          payload.slug = res.slug;
+        }
         const url = new URL(window.location.href);
         url.searchParams.set("id", res.id);
         window.history.replaceState({}, "", url.toString());
@@ -1057,13 +1061,50 @@
       const btn = document.getElementById("previewBtn");
       const orig = btn.textContent;
       btn.disabled = true; btn.textContent = "Preparing…";
+
+      // Open the tab EAGERLY, before the awaits. Popup blockers won't let us
+      // open a window mid-async-chain because the user gesture has already
+      // dispatched. So we open a placeholder tab now and swap its URL once
+      // we know the authoritative slug.
+      const tab = window.open("about:blank", "_blank");
+
       try {
         // Save silently, preserve current publish state (preview shouldn't accidentally publish)
         await save({ silent: true, keepPublishState: true });
-        if (state.id) {
-          const slug = document.getElementById("slug").value.trim();
-          window.open(`/blog/${encodeURIComponent(slug)}?preview=1`, "_blank", "noopener");
+
+        if (!state.id) {
+          if (tab) tab.close();
+          return;
         }
+
+        // Fetch the just-saved post to get the authoritative slug (the server
+        // may have auto-generated it from the title if the slug field was blank).
+        let authoritativeSlug = document.getElementById("slug").value.trim();
+        try {
+          const { post } = await AdminAPI.get(`/api/admin/posts?id=${state.id}`);
+          if (post && post.slug) {
+            authoritativeSlug = post.slug;
+            // Sync the visible slug field so what you see matches what's saved
+            document.getElementById("slug").value = post.slug;
+            updatePreview();
+          }
+        } catch (err) {
+          // If the fetch fails, fall through with whatever's in the field
+          console.warn("Preview: couldn't fetch authoritative slug", err);
+        }
+
+        if (!authoritativeSlug) {
+          showAlert(alertBox, "Couldn't determine the post slug — try Save first, then Preview.", "error");
+          if (tab) tab.close();
+          return;
+        }
+
+        const url = `/blog/${encodeURIComponent(authoritativeSlug)}?preview=1`;
+        if (tab) tab.location.href = url;
+        else window.open(url, "_blank");
+      } catch (err) {
+        if (tab) tab.close();
+        showAlert(alertBox, "Preview failed: " + err.message, "error");
       } finally {
         btn.disabled = false; btn.textContent = orig;
       }
