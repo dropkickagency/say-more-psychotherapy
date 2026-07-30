@@ -70,22 +70,8 @@
         </div>
       </div>
 
-      <div class="table__wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Slug</th>
-              <th>Status</th>
-              <th>Updated</th>
-              <th>Published</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="postsBody">
-            <tr><td colspan="6" class="loading">Loading posts…</td></tr>
-          </tbody>
-        </table>
+      <div id="postsGrid" class="admin-post-grid">
+        <div class="loading" style="grid-column: 1/-1;">Loading posts…</div>
       </div>
     </main>
   </div>
@@ -95,43 +81,66 @@
     (async () => {
       if (!(await requireSession())) return;
       const alertBox = document.getElementById("alert");
-      const body = document.getElementById("postsBody");
+      const grid = document.getElementById("postsGrid");
 
       async function load() {
         try {
           const data = await AdminAPI.get("/api/admin/posts");
-          // Populate stat cards
           document.getElementById("statPostsTotal").textContent = data.posts.length;
           document.getElementById("statPostsPublished").textContent = data.posts.filter(p => p.published).length;
           document.getElementById("statPostsDrafts").textContent = data.posts.filter(p => !p.published).length;
+
           if (!data.posts.length) {
-            body.innerHTML = `<tr><td colspan="6"><div class="empty">
+            grid.innerHTML = `<div class="empty" style="grid-column: 1/-1;">
               <h3>No posts yet.</h3>
               <p>Write your first note.</p>
               <a href="/admin/blog-edit.html" class="btn" style="margin-top: 12px;">+ New post</a>
-            </div></td></tr>`;
+            </div>`;
             return;
           }
-          body.innerHTML = data.posts.map(p => `
-            <tr>
-              <td><a href="/admin/blog-edit.html?id=${p.id}"><strong>${escapeHtml(p.title)}</strong></a></td>
-              <td><small style="color:#7A6A5C; font-family: 'Inter', monospace;">/blog/${escapeHtml(p.slug)}</small></td>
-              <td>${publishChip(p.published)}</td>
-              <td><small style="color:#7A6A5C;">${escapeHtml(fmtRelative(p.updated_at))}</small></td>
-              <td><small style="color:#7A6A5C;">${p.published_at ? escapeHtml(fmtDate(p.published_at)) : "—"}</small></td>
-              <td class="actions">
-                ${p.published ? `<a href="/blog/${escapeHtml(p.slug)}" target="_blank" rel="noopener">View ↗</a>` : ""}
-                <a href="/admin/blog-edit.html?id=${p.id}">Edit</a>
-                <a href="#" class="delete-post" data-id="${p.id}" data-title="${escapeHtml(p.title)}" style="color: #B84C4C;">Delete</a>
-              </td>
-            </tr>
-          `).join("");
 
-          document.querySelectorAll(".delete-post").forEach(a => {
-            a.addEventListener("click", async (e) => {
+          grid.innerHTML = data.posts.map(p => {
+            const summary = p.excerpt || p.meta_description || "";
+            const dateLabel = p.published_at
+              ? fmtDate(p.published_at)
+              : `Draft · updated ${fmtRelative(p.updated_at)}`;
+            return `
+              <article class="admin-post-card${p.published ? "" : " admin-post-card--draft"}">
+                <a class="admin-post-card__link" href="/admin/blog-edit.html?id=${p.id}" aria-label="Edit ${escapeHtml(p.title)}">
+                  <div class="admin-post-card__cover">
+                    ${p.cover_image
+                      ? `<img src="${escapeHtml(p.cover_image)}" alt="${escapeHtml(p.title)}" loading="lazy" />`
+                      : `<div class="admin-post-card__cover-empty">
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                          <span>No cover</span>
+                        </div>`}
+                    <span class="admin-post-card__status ${p.published ? "is-published" : "is-draft"}">${p.published ? "Published" : "Draft"}</span>
+                  </div>
+                  <div class="admin-post-card__body">
+                    <div class="admin-post-card__meta">${escapeHtml(dateLabel)}</div>
+                    <h3 class="admin-post-card__title">${escapeHtml(p.title)}</h3>
+                    ${summary ? `<p class="admin-post-card__excerpt">${escapeHtml(summary)}</p>` : ""}
+                    <span class="admin-post-card__more">Edit post <span aria-hidden="true">→</span></span>
+                  </div>
+                </a>
+                <div class="admin-post-card__actions">
+                  <div class="admin-post-card__actions-left">
+                    <code>/blog/${escapeHtml(p.slug)}</code>
+                  </div>
+                  <div class="admin-post-card__actions-right">
+                    ${p.published ? `<a href="/blog/${escapeHtml(p.slug)}" target="_blank" rel="noopener" title="Open the live post in a new tab">View ↗</a>` : `<a href="/blog/${escapeHtml(p.slug)}?preview=1" target="_blank" rel="noopener" title="Preview the draft in a new tab">Preview ↗</a>`}
+                    <button type="button" class="delete-post" data-id="${p.id}" data-title="${escapeHtml(p.title)}" title="Delete this post">Delete</button>
+                  </div>
+                </div>
+              </article>
+            `;
+          }).join("");
+
+          grid.querySelectorAll(".delete-post").forEach(b => {
+            b.addEventListener("click", async (e) => {
               e.preventDefault();
-              const id = a.dataset.id;
-              const title = a.dataset.title;
+              const id = b.dataset.id;
+              const title = b.dataset.title;
               if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
               try {
                 await AdminAPI.del(`/api/admin/posts?id=${id}`);
@@ -143,7 +152,7 @@
           });
         } catch (err) {
           showAlert(alertBox, "Couldn't load posts: " + err.message, "error");
-          body.innerHTML = "<tr><td colspan='6'><div class='empty'><h3>Unable to load posts</h3></div></td></tr>";
+          grid.innerHTML = `<div class='empty' style="grid-column: 1/-1;"><h3>Unable to load posts</h3></div>`;
         }
       }
       load();

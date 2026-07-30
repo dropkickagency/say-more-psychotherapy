@@ -28,7 +28,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ post: rows[0] });
       }
       const rows = await sql`
-        SELECT id, slug, title, meta_description, cover_image, published, published_at, updated_at, created_at
+        SELECT id, slug, title, meta_description, excerpt, cover_image, published, published_at, updated_at, created_at
         FROM posts
         ORDER BY updated_at DESC
       `;
