@@ -3,6 +3,7 @@
 // always responds 204 so the network waterfall stays clean.
 
 import { sql, ensureSchema } from "../lib/db.js";
+import { readCookie, verifyAdminToken } from "../lib/auth.js";
 
 // A conservative bot filter — matches most crawlers and preview
 // renderers so they don't pollute the metrics.
@@ -57,6 +58,15 @@ export default async function handler(req, res) {
 
     const ua = String(req.headers["user-agent"] || "");
     if (BOT_RE.test(ua)) return res.status(204).end();
+
+    // Never track the admin. If a signed-in admin is browsing the public
+    // site, silently drop the hit so the metrics reflect actual visitors.
+    try {
+      const adminToken = readCookie(req);
+      if (adminToken && (await verifyAdminToken(adminToken))) {
+        return res.status(204).end();
+      }
+    } catch { /* not signed in — proceed with normal tracking */ }
 
     // Body may arrive as a JSON string (from navigator.sendBeacon Blob) or
     // already-parsed object (from fetch with Content-Type).
