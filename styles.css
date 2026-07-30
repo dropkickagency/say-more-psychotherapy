@@ -3051,7 +3051,7 @@ a.tag:hover {
   font-size: 1.6rem;
   line-height: 1.2;
   margin: 0 0 8px;
-  color: var(--color-ink);
+  color: #111;
 }
 .post-card__excerpt {
   color: var(--color-muted);
@@ -3071,10 +3071,11 @@ a.tag:hover {
 /* --- Single blog post (SSR from /api/blog-post) --- */
 .blog-post {
   padding: var(--space-lg) 0 var(--space-xl);
+  color: #111;
 }
 .blog-post .back-link {
   display: inline-flex; align-items: center; gap: 6px;
-  color: var(--color-muted);
+  color: #666;
   font-size: 14px; margin-bottom: 20px;
   text-decoration: none;
 }
@@ -3085,12 +3086,20 @@ a.tag:hover {
   font-weight: 500;
   font-size: clamp(2rem, 4.5vw, 3.4rem);
   line-height: 1.1;
-  margin: 12px 0 16px;
-  color: var(--color-ink);
+  margin: 0 0 18px;
+  color: #111;
 }
 .blog-post__meta {
   display: inline-flex; gap: 10px; align-items: center;
-  color: var(--color-muted); font-size: 14px;
+  color: #666; font-size: 14px;
+}
+.blog-post__lead {
+  max-width: 640px;
+  margin: 20px auto 0;
+  font-size: 1.2rem;
+  line-height: 1.55;
+  color: #333;
+  font-weight: 400;
 }
 .blog-post__cover {
   margin: 0 0 var(--space-lg);
@@ -3105,7 +3114,7 @@ a.tag:hover {
 .prose {
   font-size: 17.5px;
   line-height: 1.75;
-  color: var(--color-ink);
+  color: #111;
 }
 .prose > * + * { margin-top: 1.1em; }
 .prose h2 {
@@ -3114,7 +3123,7 @@ a.tag:hover {
   font-size: 2rem;
   line-height: 1.15;
   margin-top: 1.8em;
-  color: var(--color-ink);
+  color: #111;
 }
 .prose h3 {
   font-family: 'Cormorant Garamond', Georgia, serif;
@@ -3122,9 +3131,9 @@ a.tag:hover {
   font-size: 1.4rem;
   line-height: 1.2;
   margin-top: 1.6em;
-  color: var(--color-ink);
+  color: #111;
 }
-.prose h4 { font-size: 1.15rem; margin-top: 1.4em; font-weight: 600; }
+.prose h4 { font-size: 1.15rem; margin-top: 1.4em; font-weight: 600; color: #111; }
 .prose p { margin: 0; }
 .prose a { color: var(--color-walnut, #9B7045); text-decoration: underline; text-underline-offset: 3px; }
 .prose a:hover { color: var(--color-cocoa, #745236); }
@@ -3242,7 +3251,7 @@ a.tag:hover {
   font-weight: 500;
   font-size: 1.55rem;
   margin: 0 0 4px;
-  color: var(--color-ink);
+  color: #111;
   line-height: 1.15;
 }
 .blog-post__author-credentials {
@@ -3254,7 +3263,7 @@ a.tag:hover {
   font-size: 14.5px;
   line-height: 1.6;
   margin: 0 0 12px;
-  color: var(--color-ink);
+  color: #111;
 }
 .blog-post__author-links {
   display: flex;
@@ -3290,7 +3299,7 @@ a.tag:hover {
   font-weight: 500;
   font-size: 1.7rem;
   margin: 0 0 8px;
-  color: var(--color-ink);
+  color: #111;
 }
 .blog-post__cta p { color: var(--color-muted); margin: 0 0 16px; }
 

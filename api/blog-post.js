@@ -317,10 +317,6 @@ function buildHtml(post, opts = {}) {
       </a>
 
       <header class="blog-post__head">
-        <span class="eyebrow">
-          <span class="emo emo--md">📓</span>
-          Notes from the practice
-        </span>
         <h1 class="blog-post__title">${escapeHtml(title)}</h1>
         <div class="blog-post__meta">
           <span>${escapeHtml(author)}</span>
@@ -328,6 +324,7 @@ function buildHtml(post, opts = {}) {
           <span aria-hidden="true">·</span>
           <span>${readMin} min read</span>
         </div>
+        ${post.excerpt ? `<p class="blog-post__lead">${escapeHtml(post.excerpt)}</p>` : ""}
       </header>
 
       ${post.cover_image ? `<figure class="blog-post__cover"><img src="${escapeAttr(post.cover_image)}" alt="${escapeAttr(title)}" loading="lazy" /></figure>` : ""}
