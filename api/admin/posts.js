@@ -61,6 +61,7 @@ export default async function handler(req, res) {
         INSERT INTO posts (
           slug, title, meta_description, cover_image, og_image,
           body, body_format, excerpt, author, keywords, canonical_url,
+          focus_keyword, categories, seo_score,
           published, published_at
         ) VALUES (
           ${slug},
@@ -74,6 +75,9 @@ export default async function handler(req, res) {
           ${p.author || "Paras Geramian, RP (Qualifying)"},
           ${p.keywords || ""},
           ${p.canonical_url || ""},
+          ${p.focus_keyword || ""},
+          ${p.categories || ""},
+          ${Number.isFinite(p.seo_score) ? p.seo_score : null},
           ${willPublish},
           ${publishedAt}
         )
@@ -120,6 +124,9 @@ export default async function handler(req, res) {
           author           = COALESCE(${p.author ?? null}, author),
           keywords         = COALESCE(${p.keywords ?? null}, keywords),
           canonical_url    = COALESCE(${p.canonical_url ?? null}, canonical_url),
+          focus_keyword    = COALESCE(${p.focus_keyword ?? null}, focus_keyword),
+          categories       = COALESCE(${p.categories ?? null}, categories),
+          seo_score        = COALESCE(${Number.isFinite(p.seo_score) ? p.seo_score : null}, seo_score),
           published        = COALESCE(${p.published ?? null}, published),
           published_at     = ${publishedAt},
           updated_at       = NOW()

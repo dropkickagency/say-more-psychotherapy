@@ -3151,7 +3151,28 @@ a.tag:hover {
   font-size: 0.9em;
   color: var(--color-cocoa, #745236);
 }
-.prose img { max-width: 100%; height: auto; border-radius: 10px; }
+.prose img { max-width: 100%; height: auto; border-radius: 10px; display: block; margin: 1.2em 0; }
+.prose iframe { max-width: 100%; border-radius: 10px; margin: 1.2em 0; }
+
+/* Quill authoring classes — align, font, size — so posts render with the styles used in the editor */
+.prose .ql-align-center { text-align: center; }
+.prose .ql-align-right  { text-align: right; }
+.prose .ql-align-justify { text-align: justify; }
+
+.prose .ql-font-manrope   { font-family: 'Manrope', -apple-system, system-ui, sans-serif; }
+.prose .ql-font-cormorant { font-family: 'Cormorant Garamond', Georgia, serif; }
+.prose .ql-font-georgia   { font-family: Georgia, 'Times New Roman', serif; }
+.prose .ql-font-inter     { font-family: 'Inter', sans-serif; }
+.prose .ql-font-system    { font-family: -apple-system, system-ui, sans-serif; }
+
+.prose .ql-size-small { font-size: 0.85em; }
+.prose .ql-size-large { font-size: 1.3em; }
+.prose .ql-size-huge  { font-size: 1.75em; }
+
+.prose .ql-indent-1 { padding-left: 3em; }
+.prose .ql-indent-2 { padding-left: 6em; }
+.prose .ql-indent-3 { padding-left: 9em; }
+.prose .ql-indent-4 { padding-left: 12em; }
 
 .blog-post__sep {
   border: none; height: 1px; background: var(--color-line);

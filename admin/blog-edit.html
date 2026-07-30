@@ -8,569 +8,1070 @@
   <link rel="icon" type="image/jpeg" href="/logo.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Inter:wght@400;500&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/admin/admin.css">
   <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
-  <style>
-    .seo-preview {
-      background: #FFFFFF;
-      border: 1px solid var(--admin-border);
-      border-radius: var(--admin-radius-sm);
-      padding: 14px 16px;
-      font-size: 13px;
-    }
-    .seo-preview__title { color: #1a0dab; font-size: 16px; font-weight: 500; margin-bottom: 3px; line-height: 1.3; }
-    .seo-preview__url { color: #006621; font-size: 12px; margin-bottom: 4px; }
-    .seo-preview__desc { color: #545454; font-size: 12.5px; line-height: 1.4; }
-    .char-count { font-size: 11px; color: var(--admin-muted); margin-top: 4px; }
-    .char-count.warn { color: var(--admin-warn); }
-    .char-count.err { color: var(--admin-danger); }
-    .editor-tip {
-      background: #FBF9F4;
-      border: 1px solid var(--admin-border);
-      border-radius: var(--admin-radius-sm);
-      padding: 10px 14px;
-      font-size: 12.5px;
-      color: var(--admin-muted);
-      margin-top: 10px;
-      line-height: 1.5;
-    }
-    .cover-preview {
-      margin-top: 8px;
-      border-radius: 6px;
-      overflow: hidden;
-      max-height: 140px;
-      background: #FBF9F4;
-    }
-    .cover-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .cover-upload-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 7px 12px;
-      background: #FFFFFF;
-      border: 1px dashed var(--admin-border-strong);
-      border-radius: var(--admin-radius-sm);
-      font-family: inherit;
-      font-size: 12.5px;
-      color: var(--admin-muted);
-      cursor: pointer;
-      margin-top: 6px;
-    }
-    .cover-upload-btn:hover { border-color: var(--admin-brand); color: var(--admin-brand); }
-    .cover-upload-btn.is-uploading { color: var(--admin-brand); cursor: wait; }
-    #saveHint { transition: opacity 200ms; }
-  </style>
 </head>
-<body>
-  <div class="admin">
-    <aside class="admin__sidebar" id="adminSidebar">
-      <div class="admin__brand">
-        <img src="/logo.jpg" alt="" />
-        <strong>Say More Admin</strong>
-      </div>
-      <nav class="admin__nav">
-        <a href="/admin/index.html">
-          <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          Overview
-        </a>
-        <a href="/admin/leads.html">
-          <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Leads
-        </a>
-        <a href="/admin/blog.html">
-          <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          Blog
-        </a>
-      </nav>
-      <div class="admin__sidebar-foot">
-        <a href="/" target="_blank" rel="noopener">View website ↗</a>
-        <button id="adminLogoutBtn" type="button">Sign out</button>
-      </div>
-    </aside>
-    <button class="admin__menu-toggle" id="adminMenuToggle" aria-label="Toggle menu">☰ Menu</button>
+<body class="editor-body-bg">
 
-    <main class="admin__main">
-      <div class="admin__header">
-        <div>
-          <h1 class="admin__title" id="pageTitle">New post</h1>
-        </div>
-        <div class="btn__row">
-          <a href="/admin/blog.html" class="btn btn--ghost">← All posts</a>
-          <a id="viewLive" class="btn btn--ghost hidden" target="_blank" rel="noopener">View live ↗</a>
-        </div>
+  <!-- ============ TOP BAR (spans full width, above the two-pane layout) ============ -->
+  <div class="editor-topbar">
+    <div class="editor-topbar__left">
+      <a href="/admin/blog.html" class="editor-topbar__back">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        All posts
+      </a>
+      <div class="editor-topbar__title" id="pageTitle">New post</div>
+    </div>
+    <div class="editor-topbar__right">
+      <div class="save-status" id="saveStatus">
+        <span class="save-status__dot"></span>
+        <span id="saveStatusText">Ready</span>
       </div>
+      <a id="viewLive" class="btn btn--ghost btn--sm hidden" target="_blank" rel="noopener">View live ↗</a>
+      <button type="button" class="btn btn--ghost btn--sm" id="saveDraftBtn">Save draft</button>
+      <button type="button" class="btn btn--sm" id="publishBtn">Publish</button>
+    </div>
+  </div>
 
+  <div class="editor-page">
+
+    <!-- ============ LEFT: CANVAS ============ -->
+    <div class="editor-canvas">
       <div id="alert"></div>
 
-      <div class="editor">
-        <div class="editor__main">
-          <div class="card">
-            <div class="field">
-              <label for="title">Title <span class="hint">— shown as the H1 and page title</span></label>
-              <input type="text" id="title" placeholder="e.g., What therapy actually is (and isn't)" required />
-            </div>
+      <!-- Cover image drag/drop -->
+      <div class="cover-drop" id="coverDrop" tabindex="0" role="button" aria-label="Upload cover image">
+        <div class="cover-drop__empty" id="coverEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <div><strong>Click to upload</strong> or drag &amp; drop a cover image</div>
+          <div style="font-size:11px;">JPG · PNG · WebP · Up to 8MB</div>
+        </div>
+        <img class="cover-drop__img hidden" id="coverImg" alt="" />
+        <div class="cover-drop__actions">
+          <button type="button" id="coverReplaceBtn">Replace</button>
+          <button type="button" id="coverRemoveBtn">Remove</button>
+        </div>
+        <div class="cover-drop__uploading hidden" id="coverUploading">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10" opacity="0.2"/><path d="M22 12a10 10 0 0 0-10-10" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg>
+          Uploading…
+        </div>
+        <input type="file" id="coverInput" accept="image/*" style="display:none" />
+      </div>
 
-            <div class="field">
-              <label for="excerpt">Excerpt <span class="hint">— 1–2 sentence teaser shown on the blog list</span></label>
-              <textarea id="excerpt" rows="2" placeholder="A short, considered summary…"></textarea>
-              <div class="char-count" id="excerptCount">0 / 200 recommended</div>
-            </div>
+      <!-- Title -->
+      <textarea class="post-title" id="title" placeholder="Post title" rows="1"></textarea>
 
-            <div class="field">
-              <label>Post body</label>
-              <div id="editor"></div>
-              <div class="editor-tip">
-                <strong>Tips:</strong>
-                Use the toolbar for headings (H1/H2/H3), bold, italic, quotes, lists, and links.
-                To add an image, click the <strong>image icon</strong> in the toolbar — pick a file from your computer and it uploads automatically.
-                Press <kbd>Ctrl</kbd>+<kbd>B</kbd> for bold, <kbd>Ctrl</kbd>+<kbd>I</kbd> for italic.
-              </div>
-            </div>
+      <!-- Excerpt (short description) -->
+      <textarea class="post-excerpt" id="excerpt" placeholder="Write a short description (1–2 sentences shown on the blog list and social previews)…" rows="2"></textarea>
+
+      <!-- Body editor -->
+      <div id="editor"></div>
+
+      <!-- Live stats -->
+      <div class="editor-stats">
+        <span><strong id="statWords">0</strong> words</span>
+        <span><strong id="statReading">0 min</strong> read</span>
+        <span><strong id="statImages">0</strong> images</span>
+      </div>
+    </div>
+
+    <!-- ============ RIGHT: SIDEBAR ============ -->
+    <aside class="editor-side">
+      <div class="side-tabs" role="tablist">
+        <button type="button" class="is-active" data-tab="seo">SEO</button>
+        <button type="button" data-tab="settings">Settings</button>
+      </div>
+
+      <!-- SEO PANEL -->
+      <div class="side-panel is-active" data-panel="seo">
+
+        <!-- Score ring -->
+        <div class="score-ring-wrap">
+          <div class="score-ring" id="scoreRing">
+            <svg width="68" height="68">
+              <circle class="score-ring__bg" cx="34" cy="34" r="28" stroke-width="6" fill="none"/>
+              <circle class="score-ring__fg" cx="34" cy="34" r="28" stroke-width="6" fill="none"
+                stroke-dasharray="175.9"
+                stroke-dashoffset="175.9"
+                stroke-linecap="round"
+                id="scoreRingFg"/>
+            </svg>
+            <div class="score-ring__value" id="scoreValue">—</div>
+          </div>
+          <div class="score-meta">
+            <strong id="scoreLabel">Add a focus keyword</strong>
+            <span id="scoreSubtext">SEO analysis will appear here.</span>
           </div>
         </div>
 
-        <aside class="editor__side">
-          <div class="card editor__meta">
-            <h3 class="card__title">Publish</h3>
-            <div class="field__check">
-              <input type="checkbox" id="published" />
-              <label for="published" style="margin: 0; text-transform: none; letter-spacing: 0; color: var(--admin-ink);">
-                Published on the blog
-              </label>
-            </div>
-            <div class="btn__row" style="margin-top: 14px;">
-              <button type="button" class="btn" id="saveBtn">Save</button>
-              <button type="button" class="btn btn--ghost" id="saveDraftBtn">Save as draft</button>
-            </div>
-            <div id="saveHint" style="margin-top: 10px; font-size: 12px; color: var(--admin-muted);"></div>
-          </div>
+        <!-- Focus keyword -->
+        <div class="field focus-keyword-field">
+          <label for="focus_keyword">Focus keyword <span class="hint">— the main phrase you want to rank for</span></label>
+          <input type="text" id="focus_keyword" placeholder="e.g., therapy in brampton" />
+        </div>
 
-          <div class="card">
-            <h3 class="card__title">SEO</h3>
+        <!-- Google preview -->
+        <label style="font-size:11.5px; color:var(--admin-muted); font-weight:600; display:block; margin-bottom:6px;">Google preview</label>
+        <div class="google-preview">
+          <div class="google-preview__title" id="previewTitle">Your title here — Say More Psychotherapy</div>
+          <div class="google-preview__url" id="previewUrl">https://www.saymorepsychotherapy.ca › blog › your-slug</div>
+          <div class="google-preview__desc" id="previewDesc">Your meta description will appear here as it would in a Google search result.</div>
+        </div>
 
-            <div class="field">
-              <label for="slug">URL slug <span class="hint">— lowercase, dashes only</span></label>
-              <input type="text" id="slug" placeholder="what-therapy-actually-is" />
-              <div class="slug-preview" id="slugPreview">/blog/…</div>
-            </div>
+        <!-- Slug -->
+        <div class="field">
+          <label for="slug">URL slug</label>
+          <input type="text" id="slug" placeholder="what-therapy-actually-is" />
+        </div>
 
-            <div class="field">
-              <label for="meta_description">Meta description <span class="hint">— shown by Google under the title</span></label>
-              <textarea id="meta_description" rows="3" placeholder="A single, specific sentence about what this post gives the reader."></textarea>
-              <div class="char-count" id="metaCount">0 / 155–160 ideal</div>
-            </div>
+        <!-- Meta description -->
+        <div class="field">
+          <label for="meta_description">Meta description <span class="hint" id="metaLen">0 chars</span></label>
+          <textarea id="meta_description" rows="3" placeholder="A single, specific sentence about what this post gives the reader (120–160 chars)."></textarea>
+        </div>
 
-            <div class="field">
-              <label for="keywords">Keywords <span class="hint">— comma-separated, less critical for ranking</span></label>
-              <input type="text" id="keywords" placeholder="therapy, anxiety, brampton" />
-            </div>
+        <!-- Keywords -->
+        <div class="field">
+          <label for="keywords">Keywords <span class="hint">— comma-separated, secondary keywords</span></label>
+          <input type="text" id="keywords" placeholder="therapy, anxiety, brampton" />
+        </div>
 
-            <div class="field">
-              <label>Cover image <span class="hint">— shown at the top of the post</span></label>
-              <input type="url" id="cover_image" placeholder="https://…" />
-              <button type="button" class="cover-upload-btn" id="coverUploadBtn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span>Upload from computer</span>
-              </button>
-              <input type="file" id="coverUploadInput" accept="image/*" style="display: none;" />
-              <div class="cover-preview hidden" id="coverPreview"><img id="coverPreviewImg" src="" alt="" /></div>
-            </div>
+        <!-- OG image -->
+        <div class="field">
+          <label for="og_image">Social share image URL <span class="hint">— defaults to cover</span></label>
+          <input type="url" id="og_image" placeholder="Auto-uses cover if empty" />
+        </div>
 
-            <div class="field">
-              <label for="og_image">Social share image URL <span class="hint">— defaults to cover image</span></label>
-              <input type="url" id="og_image" placeholder="https://…" />
-            </div>
+        <!-- Canonical -->
+        <div class="field">
+          <label for="canonical_url">Canonical URL <span class="hint">— leave blank unless syndicated</span></label>
+          <input type="url" id="canonical_url" placeholder="" />
+        </div>
 
-            <div class="field">
-              <label for="canonical_url">Canonical URL <span class="hint">— leave blank unless copied from elsewhere</span></label>
-              <input type="url" id="canonical_url" placeholder="" />
-            </div>
-          </div>
-
-          <div class="card">
-            <h3 class="card__title">Google preview</h3>
-            <div class="seo-preview" id="seoPreview">
-              <div class="seo-preview__title" id="previewTitle">Your title here — Say More Psychotherapy</div>
-              <div class="seo-preview__url" id="previewUrl">https://www.saymorepsychotherapy.ca › blog › your-slug</div>
-              <div class="seo-preview__desc" id="previewDesc">Your meta description will appear here as it would in a Google search result.</div>
-            </div>
-          </div>
-        </aside>
+        <!-- Checks list -->
+        <div class="checks-header">
+          <h4>Analysis</h4>
+          <div class="checks-summary" id="checksSummary">—</div>
+        </div>
+        <ul class="checks-list" id="checksList">
+          <li class="check--info"><span class="check__dot">i</span>Add a focus keyword to unlock the full SEO analysis.</li>
+        </ul>
       </div>
-    </main>
+
+      <!-- SETTINGS PANEL -->
+      <div class="side-panel" data-panel="settings">
+        <div class="field">
+          <label for="author">Author</label>
+          <input type="text" id="author" value="Paras Geramian, RP (Qualifying)" />
+        </div>
+
+        <div class="field">
+          <label for="categories">Categories <span class="hint">— comma-separated</span></label>
+          <input type="text" id="categories" placeholder="Anxiety, Depression, Therapy" />
+        </div>
+
+        <div class="field">
+          <label>Publish state</label>
+          <div class="field__check">
+            <input type="checkbox" id="published" />
+            <label for="published" style="margin: 0; text-transform: none; letter-spacing: 0; color: var(--admin-ink); font-weight: 500;">
+              Published on the blog
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Danger zone</label>
+          <button type="button" class="btn btn--danger btn--sm" id="deleteBtn" style="width:100%; justify-content:center;">Delete this post</button>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <script src="/admin/admin.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
   <script>
-    // -------------------------------------------------------
-    // State + helpers
-    // -------------------------------------------------------
-    const state = {
-      id: null,
-      slugTouched: false,
-      dirty: false,
-      quill: null,
-    };
+  //---------------------------------------------------------
+  // State + helpers
+  //---------------------------------------------------------
+  const state = {
+    id: null,
+    slugTouched: false,
+    dirty: false,
+    quill: null,
+    lastSaved: null,
+    seoScore: 0,
+    autosaveTimer: null,
+  };
 
-    function slugify(s) {
-      return String(s || "").toLowerCase().trim()
-        .replace(/['"]/g, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 80);
-    }
+  const AUTOSAVE_MS = 30000;
+  const SCORE_RING_C = 2 * Math.PI * 28; // circumference for r=28 (~175.9)
 
-    // Convert legacy markdown → HTML for loading existing posts into Quill.
-    // Kept minimal on purpose; mirrors the server-side renderer.
-    function markdownToHtml(md) {
-      if (!md) return "";
-      function inline(s) {
-        let x = escapeHtml(s);
-        x = x.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-        x = x.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-        x = x.replace(/__([^_]+)__/g, "<strong>$1</strong>");
-        x = x.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
-        x = x.replace(/(^|[^_])_([^_]+)_(?!_)/g, "$1<em>$2</em>");
-        x = x.replace(/`([^`]+)`/g, "<code>$1</code>");
-        return x;
+  function slugify(s) {
+    return String(s || "").toLowerCase().trim()
+      .replace(/['"]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+  }
+
+  function autoResize(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  //---------------------------------------------------------
+  // Register custom fonts, sizes, and an HR blot for Quill
+  //---------------------------------------------------------
+  const QFont = Quill.import('formats/font');
+  QFont.whitelist = ['manrope', 'cormorant', 'georgia', 'inter', 'system'];
+  Quill.register(QFont, true);
+
+  const QSize = Quill.import('formats/size');
+  QSize.whitelist = ['small', 'normal', 'large', 'huge'];
+  Quill.register(QSize, true);
+
+  // Custom HR (horizontal rule) blot — Quill doesn't ship one
+  const BlockEmbed = Quill.import('blots/block/embed');
+  class HrBlot extends BlockEmbed { static create() { return document.createElement('hr'); } }
+  HrBlot.blotName = 'hr';
+  HrBlot.tagName = 'hr';
+  Quill.register(HrBlot);
+
+  //---------------------------------------------------------
+  // Legacy markdown loader (for existing markdown posts)
+  //---------------------------------------------------------
+  function inlineMd(s) {
+    let x = escapeHtml(s);
+    x = x.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    x = x.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    x = x.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+    x = x.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
+    x = x.replace(/(^|[^_])_([^_]+)_(?!_)/g, "$1<em>$2</em>");
+    x = x.replace(/`([^`]+)`/g, "<code>$1</code>");
+    return x;
+  }
+  function markdownToHtml(md) {
+    if (!md) return "";
+    const src = String(md).replace(/\r\n/g, "\n").trim();
+    const blocks = src.split(/\n{2,}/);
+    const out = [];
+    for (let b of blocks) {
+      b = b.trim(); if (!b) continue;
+      let m;
+      if ((m = b.match(/^######\s+(.+)$/))) { out.push(`<h6>${inlineMd(m[1])}</h6>`); continue; }
+      if ((m = b.match(/^#####\s+(.+)$/)))  { out.push(`<h5>${inlineMd(m[1])}</h5>`); continue; }
+      if ((m = b.match(/^####\s+(.+)$/)))   { out.push(`<h4>${inlineMd(m[1])}</h4>`); continue; }
+      if ((m = b.match(/^###\s+(.+)$/)))    { out.push(`<h3>${inlineMd(m[1])}</h3>`); continue; }
+      if ((m = b.match(/^##\s+(.+)$/)))     { out.push(`<h2>${inlineMd(m[1])}</h2>`); continue; }
+      if ((m = b.match(/^#\s+(.+)$/)))      { out.push(`<h2>${inlineMd(m[1])}</h2>`); continue; }
+      if (/^>\s?/.test(b)) {
+        out.push(`<blockquote>${inlineMd(b.split("\n").map(l => l.replace(/^>\s?/, "")).join(" "))}</blockquote>`); continue;
       }
-      const src = String(md).replace(/\r\n/g, "\n").trim();
-      const blocks = src.split(/\n{2,}/);
-      const out = [];
-      for (let block of blocks) {
-        block = block.trim();
-        if (!block) continue;
-        let m;
-        if ((m = block.match(/^######\s+(.+)$/))) { out.push(`<h6>${inline(m[1])}</h6>`); continue; }
-        if ((m = block.match(/^#####\s+(.+)$/)))  { out.push(`<h5>${inline(m[1])}</h5>`); continue; }
-        if ((m = block.match(/^####\s+(.+)$/)))   { out.push(`<h4>${inline(m[1])}</h4>`); continue; }
-        if ((m = block.match(/^###\s+(.+)$/)))    { out.push(`<h3>${inline(m[1])}</h3>`); continue; }
-        if ((m = block.match(/^##\s+(.+)$/)))     { out.push(`<h2>${inline(m[1])}</h2>`); continue; }
-        if ((m = block.match(/^#\s+(.+)$/)))      { out.push(`<h2>${inline(m[1])}</h2>`); continue; }
-        if (/^>\s?/.test(block)) {
-          const body = block.split("\n").map(l => l.replace(/^>\s?/, "")).join(" ");
-          out.push(`<blockquote>${inline(body)}</blockquote>`); continue;
-        }
-        if (/^([-*])\s+/.test(block)) {
-          const items = block.split("\n").filter(Boolean).map(l => l.replace(/^([-*])\s+/, "")).map(inline);
-          out.push(`<ul>${items.map(i => `<li>${i}</li>`).join("")}</ul>`); continue;
-        }
-        if (/^\d+\.\s+/.test(block)) {
-          const items = block.split("\n").filter(Boolean).map(l => l.replace(/^\d+\.\s+/, "")).map(inline);
-          out.push(`<ol>${items.map(i => `<li>${i}</li>`).join("")}</ol>`); continue;
-        }
-        if (/^(-{3,}|\*{3,}|_{3,})$/.test(block)) { out.push("<hr>"); continue; }
-        if (/^<(p|div|section|article|figure|img|table|iframe|blockquote|h[1-6]|ul|ol)\b/i.test(block)) { out.push(block); continue; }
-        out.push(`<p>${inline(block).replace(/\n/g, "<br>")}</p>`);
+      if (/^([-*])\s+/.test(b)) {
+        const items = b.split("\n").filter(Boolean).map(l => l.replace(/^([-*])\s+/, "")).map(inlineMd);
+        out.push(`<ul>${items.map(i => `<li>${i}</li>`).join("")}</ul>`); continue;
       }
-      return out.join("\n");
+      if (/^\d+\.\s+/.test(b)) {
+        const items = b.split("\n").filter(Boolean).map(l => l.replace(/^\d+\.\s+/, "")).map(inlineMd);
+        out.push(`<ol>${items.map(i => `<li>${i}</li>`).join("")}</ol>`); continue;
+      }
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(b)) { out.push("<hr>"); continue; }
+      if (/^<(p|div|section|article|figure|img|table|iframe|blockquote|h[1-6]|ul|ol)\b/i.test(b)) { out.push(b); continue; }
+      out.push(`<p>${inlineMd(b).replace(/\n/g, "<br>")}</p>`);
     }
+    return out.join("\n");
+  }
 
-    // -------------------------------------------------------
-    // Image upload — used by Quill and cover-image button
-    // -------------------------------------------------------
-    async function uploadImage(file) {
-      return new Promise((resolve, reject) => {
-        if (!/^image\//.test(file.type)) return reject(new Error("Please choose an image file."));
-        if (file.size > 8 * 1024 * 1024) return reject(new Error("Image is too large (max 8 MB)."));
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const dataUrl = String(e.target.result || "");
-          const base64 = dataUrl.split(",")[1];
-          try {
-            const res = await fetch("/api/admin/upload-image", {
-              method: "POST",
-              credentials: "same-origin",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ filename: file.name, mime: file.type, data: base64 }),
-            });
-            let json = null;
-            try { json = await res.json(); } catch { /* no body */ }
-            if (!res.ok) {
-              const msg = (json && json.error) || `Upload failed (HTTP ${res.status})`;
-              return reject(new Error(msg));
-            }
-            resolve(json.url);
-          } catch (err) {
-            reject(err);
-          }
-        };
-        reader.onerror = () => reject(new Error("Could not read image file."));
-        reader.readAsDataURL(file);
-      });
-    }
-
-    function imageHandler() {
-      const q = state.quill;
-      const alertBox = document.getElementById("alert");
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.style.display = "none";
-      document.body.appendChild(input);
-      input.click();
-      input.onchange = async () => {
-        const file = input.files && input.files[0];
-        input.remove();
-        if (!file) return;
-        // Snapshot cursor position now — the fetch may take a moment.
-        const range = q.getSelection(true) || { index: q.getLength(), length: 0 };
-        showAlert(alertBox, `Uploading ${file.name}…`, "info");
+  //---------------------------------------------------------
+  // Image upload (used by Quill toolbar, cover, and drag-drop)
+  //---------------------------------------------------------
+  function uploadImage(file) {
+    return new Promise((resolve, reject) => {
+      if (!/^image\//.test(file.type)) return reject(new Error("Please choose an image file."));
+      if (file.size > 8 * 1024 * 1024) return reject(new Error("Image is too large (max 8 MB)."));
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const b64 = String(e.target.result || "").split(",")[1];
         try {
-          const url = await uploadImage(file);
-          q.insertEmbed(range.index, "image", url, "user");
-          q.setSelection(range.index + 1, 0);
-          state.dirty = true;
-          alertBox.innerHTML = "";
-        } catch (err) {
-          showAlert(alertBox, err.message, "error");
-        }
+          const res = await fetch("/api/admin/upload-image", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: file.name, mime: file.type, data: b64 }),
+          });
+          let json = null; try { json = await res.json(); } catch {}
+          if (!res.ok) return reject(new Error((json && json.error) || `Upload failed (HTTP ${res.status})`));
+          resolve(json.url);
+        } catch (err) { reject(err); }
       };
-    }
+      reader.onerror = () => reject(new Error("Could not read image file."));
+      reader.readAsDataURL(file);
+    });
+  }
 
-    // -------------------------------------------------------
-    // Live preview (SEO panel)
-    // -------------------------------------------------------
-    function updatePreview() {
-      const title = document.getElementById("title").value.trim();
-      const slug  = document.getElementById("slug").value.trim() || "your-slug";
-      const meta  = document.getElementById("meta_description").value.trim();
-      const excerpt = document.getElementById("excerpt").value.trim();
-      const cover = document.getElementById("cover_image").value.trim();
-
-      document.getElementById("previewTitle").textContent =
-        (title || "Your title here") + " — Say More Psychotherapy";
-      document.getElementById("previewUrl").textContent =
-        `https://www.saymorepsychotherapy.ca › blog › ${slug}`;
-      document.getElementById("previewDesc").textContent =
-        meta || excerpt || "Your meta description will appear here as it would in a Google search result.";
-      document.getElementById("slugPreview").textContent = `/blog/${slug}`;
-
-      // Cover preview
-      const cp = document.getElementById("coverPreview");
-      const cpi = document.getElementById("coverPreviewImg");
-      if (cover) {
-        cpi.src = cover;
-        cp.classList.remove("hidden");
-      } else {
-        cp.classList.add("hidden");
-      }
-
-      // Char counts
-      const metaLen = meta.length;
-      const mc = document.getElementById("metaCount");
-      mc.textContent = `${metaLen} / 155–160 ideal`;
-      mc.className = "char-count" + (metaLen > 160 ? " err" : metaLen > 155 ? " warn" : "");
-
-      const exLen = excerpt.length;
-      const ec = document.getElementById("excerptCount");
-      ec.textContent = `${exLen} / 200 recommended`;
-      ec.className = "char-count" + (exLen > 240 ? " err" : exLen > 200 ? " warn" : "");
-    }
-
-    function bindFieldEvents() {
-      const ids = ["title","slug","meta_description","keywords","cover_image","og_image","canonical_url","excerpt","published"];
-      ids.forEach(id => {
-        const el = document.getElementById(id);
-        el.addEventListener("input", () => { state.dirty = true; updatePreview(); });
-        el.addEventListener("change", () => { state.dirty = true; updatePreview(); });
-      });
-
-      // Auto-slug from title while slug hasn't been manually touched
-      document.getElementById("title").addEventListener("input", () => {
-        if (!state.slugTouched && !state.id) {
-          document.getElementById("slug").value = slugify(document.getElementById("title").value);
-          updatePreview();
-        }
-      });
-      document.getElementById("slug").addEventListener("input", () => {
-        state.slugTouched = true;
-        const v = document.getElementById("slug").value;
-        const cleaned = v.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "");
-        if (v !== cleaned) document.getElementById("slug").value = cleaned;
-      });
-
-      // Cover upload button
-      const coverBtn = document.getElementById("coverUploadBtn");
-      const coverInput = document.getElementById("coverUploadInput");
-      coverBtn.addEventListener("click", () => coverInput.click());
-      coverInput.addEventListener("change", async () => {
-        const f = coverInput.files && coverInput.files[0];
-        if (!f) return;
-        coverBtn.classList.add("is-uploading");
-        coverBtn.querySelector("span").textContent = "Uploading…";
-        try {
-          const url = await uploadImage(f);
-          document.getElementById("cover_image").value = url;
-          state.dirty = true;
-          updatePreview();
-        } catch (err) {
-          showAlert(document.getElementById("alert"), err.message, "error");
-        } finally {
-          coverBtn.classList.remove("is-uploading");
-          coverBtn.querySelector("span").textContent = "Upload from computer";
-          coverInput.value = "";
-        }
-      });
-    }
-
-    // -------------------------------------------------------
-    // Initialise Quill
-    // -------------------------------------------------------
-    function initQuill() {
-      const q = new Quill("#editor", {
-        theme: "snow",
-        placeholder: "Start writing your post here…",
-        modules: {
-          toolbar: {
-            container: [
-              [{ header: [2, 3, 4, false] }],
-              ["bold", "italic", "underline"],
-              [{ list: "ordered" }, { list: "bullet" }],
-              ["blockquote", "link", "image"],
-              ["clean"],
-            ],
-            handlers: { image: imageHandler },
-          },
-          history: { delay: 500, maxStack: 200, userOnly: true },
-        },
-      });
-      state.quill = q;
-      q.on("text-change", (_delta, _old, source) => {
-        if (source === "user") state.dirty = true;
-      });
-      return q;
-    }
-
-    // -------------------------------------------------------
-    // Load an existing post into the form
-    // -------------------------------------------------------
-    async function loadExisting(id) {
+  function quillImageHandler() {
+    const q = state.quill;
+    const alertBox = document.getElementById("alert");
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*"; input.style.display = "none";
+    document.body.appendChild(input);
+    input.click();
+    input.onchange = async () => {
+      const file = input.files && input.files[0];
+      input.remove();
+      if (!file) return;
+      const range = q.getSelection(true) || { index: q.getLength(), length: 0 };
+      showAlert(alertBox, `Uploading ${file.name}…`, "info");
       try {
-        const { post } = await AdminAPI.get(`/api/admin/posts?id=${id}`);
-        state.id = post.id;
-        state.slugTouched = true;
-        document.getElementById("pageTitle").textContent = "Edit post";
-        document.getElementById("title").value = post.title || "";
-        document.getElementById("slug").value = post.slug || "";
-        document.getElementById("meta_description").value = post.meta_description || "";
-        document.getElementById("keywords").value = post.keywords || "";
-        document.getElementById("cover_image").value = post.cover_image || "";
-        document.getElementById("og_image").value = post.og_image || "";
-        document.getElementById("canonical_url").value = post.canonical_url || "";
-        document.getElementById("excerpt").value = post.excerpt || "";
-        document.getElementById("published").checked = !!post.published;
-
-        // Load body into Quill — convert legacy markdown to HTML first
-        let bodyHtml = post.body || "";
-        if ((post.body_format || "markdown") === "markdown" && bodyHtml) {
-          bodyHtml = markdownToHtml(bodyHtml);
-        }
-        if (state.quill) {
-          state.quill.clipboard.dangerouslyPasteHTML(bodyHtml, "silent");
-        }
-
-        if (post.published) {
-          const link = document.getElementById("viewLive");
-          link.href = `/blog/${post.slug}`;
-          link.classList.remove("hidden");
-        }
-
-        // Reset dirty since we just loaded
-        state.dirty = false;
-        updatePreview();
-      } catch (err) {
-        showAlert(document.getElementById("alert"), "Couldn't load post: " + err.message, "error");
-      }
-    }
-
-    // -------------------------------------------------------
-    // Save
-    // -------------------------------------------------------
-    async function save(asDraft) {
-      const alertBox = document.getElementById("alert");
-      const saveBtn = document.getElementById("saveBtn");
-      const draftBtn = document.getElementById("saveDraftBtn");
-      const hint = document.getElementById("saveHint");
-      alertBox.innerHTML = "";
-      hint.textContent = "";
-
-      const title = document.getElementById("title").value.trim();
-      if (!title) { showAlert(alertBox, "Title is required.", "error"); return; }
-
-      // Pull HTML from Quill. If it's just an empty paragraph, save an empty string.
-      let bodyHtml = state.quill ? state.quill.root.innerHTML : "";
-      if (bodyHtml === "<p><br></p>") bodyHtml = "";
-
-      const payload = {
-        title,
-        slug: document.getElementById("slug").value.trim() || slugify(title),
-        meta_description: document.getElementById("meta_description").value.trim(),
-        keywords: document.getElementById("keywords").value.trim(),
-        cover_image: document.getElementById("cover_image").value.trim(),
-        og_image: document.getElementById("og_image").value.trim(),
-        canonical_url: document.getElementById("canonical_url").value.trim(),
-        excerpt: document.getElementById("excerpt").value.trim(),
-        body: bodyHtml,
-        body_format: "html",
-        published: asDraft ? false : document.getElementById("published").checked,
-      };
-      if (asDraft) document.getElementById("published").checked = false;
-
-      saveBtn.disabled = true; draftBtn.disabled = true;
-      saveBtn.textContent = "Saving…";
-      try {
-        if (state.id) {
-          await AdminAPI.patch("/api/admin/posts", { id: state.id, ...payload });
-          showAlert(alertBox, payload.published ? "Saved and published." : "Saved.", "success");
-        } else {
-          const res = await AdminAPI.post("/api/admin/posts", payload);
-          state.id = res.id;
-          const url = new URL(window.location.href);
-          url.searchParams.set("id", res.id);
-          window.history.replaceState({}, "", url.toString());
-          document.getElementById("pageTitle").textContent = "Edit post";
-          showAlert(alertBox, payload.published ? "Post created and published." : "Draft created.", "success");
-        }
-        state.dirty = false;
-
-        const link = document.getElementById("viewLive");
-        if (payload.published) {
-          link.href = `/blog/${payload.slug}`;
-          link.classList.remove("hidden");
-        } else {
-          link.classList.add("hidden");
-        }
+        const url = await uploadImage(file);
+        const alt = prompt("Add alt text for this image (helps SEO + accessibility):", file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")) || "";
+        q.insertEmbed(range.index, "image", url, "user");
+        // Set alt text on the inserted image
+        setTimeout(() => {
+          const imgs = q.root.querySelectorAll('img[src="' + url + '"]');
+          imgs.forEach(img => { if (alt) img.setAttribute('alt', alt); });
+          markDirty();
+          updateStats();
+          debouncedSeo();
+        }, 30);
+        q.setSelection(range.index + 1, 0);
+        state.dirty = true;
+        alertBox.innerHTML = "";
       } catch (err) {
         showAlert(alertBox, err.message, "error");
-      } finally {
-        saveBtn.disabled = false; draftBtn.disabled = false;
-        saveBtn.textContent = "Save";
+      }
+    };
+  }
+
+  //---------------------------------------------------------
+  // Cover image handling
+  //---------------------------------------------------------
+  let coverUrl = "";
+  function setCover(url) {
+    coverUrl = url || "";
+    const img = document.getElementById("coverImg");
+    const empty = document.getElementById("coverEmpty");
+    const drop = document.getElementById("coverDrop");
+    if (url) {
+      img.src = url;
+      img.classList.remove("hidden");
+      empty.classList.add("hidden");
+      drop.classList.add("has-image");
+    } else {
+      img.classList.add("hidden");
+      empty.classList.remove("hidden");
+      drop.classList.remove("has-image");
+    }
+  }
+
+  async function handleCoverFile(file) {
+    const drop = document.getElementById("coverDrop");
+    const uploading = document.getElementById("coverUploading");
+    uploading.classList.remove("hidden");
+    try {
+      const url = await uploadImage(file);
+      setCover(url);
+      markDirty();
+      debouncedSeo();
+    } catch (err) {
+      showAlert(document.getElementById("alert"), err.message, "error");
+    } finally {
+      uploading.classList.add("hidden");
+    }
+  }
+
+  function bindCover() {
+    const drop = document.getElementById("coverDrop");
+    const input = document.getElementById("coverInput");
+    const replaceBtn = document.getElementById("coverReplaceBtn");
+    const removeBtn = document.getElementById("coverRemoveBtn");
+
+    function openPicker(e) { e && e.stopPropagation && e.stopPropagation(); input.click(); }
+    drop.addEventListener("click", (e) => {
+      // Don't fire when clicking action buttons (Replace/Remove)
+      if (e.target.closest('.cover-drop__actions')) return;
+      openPicker(e);
+    });
+    drop.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(); }
+    });
+    input.addEventListener("change", () => {
+      const f = input.files && input.files[0];
+      if (f) handleCoverFile(f);
+      input.value = "";
+    });
+    replaceBtn.addEventListener("click", (e) => { e.stopPropagation(); openPicker(); });
+    removeBtn.addEventListener("click", (e) => { e.stopPropagation(); setCover(""); markDirty(); debouncedSeo(); });
+
+    // Drag-drop
+    ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      drop.classList.add("is-drag");
+    }));
+    ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      drop.classList.remove("is-drag");
+    }));
+    drop.addEventListener("drop", (e) => {
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) handleCoverFile(f);
+    });
+  }
+
+  //---------------------------------------------------------
+  // Drag-drop images onto the editor body
+  //---------------------------------------------------------
+  function bindEditorDrop() {
+    const el = document.querySelector('.ql-editor');
+    if (!el) return;
+    ["dragenter", "dragover"].forEach(ev => el.addEventListener(ev, (e) => {
+      if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+        e.preventDefault();
+      }
+    }));
+    el.addEventListener("drop", async (e) => {
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || !files.length) return;
+      const file = files[0];
+      if (!/^image\//.test(file.type)) return;
+      e.preventDefault();
+      const q = state.quill;
+      const range = q.getSelection() || { index: q.getLength(), length: 0 };
+      showAlert(document.getElementById("alert"), `Uploading ${file.name}…`, "info");
+      try {
+        const url = await uploadImage(file);
+        const alt = prompt("Alt text (SEO + accessibility):", file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")) || "";
+        q.insertEmbed(range.index, "image", url, "user");
+        setTimeout(() => {
+          const imgs = q.root.querySelectorAll('img[src="' + url + '"]');
+          imgs.forEach(img => { if (alt) img.setAttribute('alt', alt); });
+          markDirty(); updateStats(); debouncedSeo();
+        }, 30);
+        document.getElementById("alert").innerHTML = "";
+      } catch (err) {
+        showAlert(document.getElementById("alert"), err.message, "error");
+      }
+    });
+  }
+
+  //---------------------------------------------------------
+  // Stats + preview + save-status
+  //---------------------------------------------------------
+  function stripHtml(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html || "";
+    return (div.textContent || div.innerText || "").replace(/\s+/g, " ").trim();
+  }
+  function countWords(text) {
+    if (!text) return 0;
+    return text.trim().split(/\s+/).filter(Boolean).length;
+  }
+  function readingMinutes(words) {
+    if (words <= 0) return 0;
+    return Math.max(1, Math.round(words / 220));
+  }
+
+  function updateStats() {
+    if (!state.quill) return;
+    const text = stripHtml(state.quill.root.innerHTML);
+    const words = countWords(text);
+    const imgs = state.quill.root.querySelectorAll("img").length;
+    document.getElementById("statWords").textContent = words;
+    document.getElementById("statReading").textContent = readingMinutes(words) + " min";
+    document.getElementById("statImages").textContent = imgs;
+  }
+
+  function updatePreview() {
+    const title = document.getElementById("title").value.trim();
+    const slug = document.getElementById("slug").value.trim() || "your-slug";
+    const meta = document.getElementById("meta_description").value.trim();
+    const excerpt = document.getElementById("excerpt").value.trim();
+
+    document.getElementById("previewTitle").textContent =
+      (title || "Your title here") + " — Say More Psychotherapy";
+    document.getElementById("previewUrl").textContent =
+      `https://www.saymorepsychotherapy.ca › blog › ${slug}`;
+    document.getElementById("previewDesc").textContent =
+      meta || excerpt || "Your meta description will appear here as it would in a Google search result.";
+    document.getElementById("metaLen").textContent = `${meta.length} chars`;
+  }
+
+  function setSaveStatus(kind, text) {
+    const box = document.getElementById("saveStatus");
+    const txt = document.getElementById("saveStatusText");
+    box.classList.remove("is-saving", "is-dirty", "is-error");
+    if (kind === "saving") box.classList.add("is-saving");
+    if (kind === "dirty") box.classList.add("is-dirty");
+    if (kind === "error") box.classList.add("is-error");
+    txt.textContent = text;
+  }
+
+  function markDirty() {
+    state.dirty = true;
+    setSaveStatus("dirty", "Unsaved changes");
+    scheduleAutosave();
+  }
+
+  //---------------------------------------------------------
+  // Autosave (drafts only — never flips publish state)
+  //---------------------------------------------------------
+  function scheduleAutosave() {
+    if (state.autosaveTimer) clearTimeout(state.autosaveTimer);
+    state.autosaveTimer = setTimeout(() => {
+      if (state.dirty && state.id) save({ silent: true, keepPublishState: true });
+    }, AUTOSAVE_MS);
+  }
+
+  //---------------------------------------------------------
+  // SEO ANALYZER
+  //---------------------------------------------------------
+  function extractHeadings(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html || "";
+    return Array.from(div.querySelectorAll("h1,h2,h3,h4,h5,h6")).map(h => ({
+      level: Number(h.tagName.slice(1)),
+      text: (h.textContent || "").trim(),
+    }));
+  }
+  function extractImages(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html || "";
+    return Array.from(div.querySelectorAll("img")).map(i => ({
+      src: i.getAttribute("src") || "",
+      alt: i.getAttribute("alt") || "",
+    }));
+  }
+  function extractLinks(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html || "";
+    return Array.from(div.querySelectorAll("a[href]")).map(a => {
+      const href = a.getAttribute("href") || "";
+      const internal =
+        href.startsWith("/") ||
+        href.startsWith("#") ||
+        /^https?:\/\/(www\.)?saymorepsychotherapy\.ca/.test(href);
+      return { href, internal, text: (a.textContent || "").trim() };
+    });
+  }
+  function firstParagraph(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html || "";
+    const p = div.querySelector("p");
+    return p ? (p.textContent || "").trim() : "";
+  }
+  function occurrencesOfPhrase(str, phrase) {
+    if (!phrase) return 0;
+    const esc = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`\\b${esc}\\b`, "gi");
+    const matches = String(str || "").match(re);
+    return matches ? matches.length : 0;
+  }
+
+  function runSeoAnalysis() {
+    const focusRaw = document.getElementById("focus_keyword").value.trim();
+    const focus = focusRaw.toLowerCase();
+    const title = document.getElementById("title").value.trim();
+    const meta = document.getElementById("meta_description").value.trim();
+    const slug = document.getElementById("slug").value.trim();
+    const excerpt = document.getElementById("excerpt").value.trim();
+    const html = state.quill ? state.quill.root.innerHTML : "";
+    const bodyText = stripHtml(html);
+    const bodyLower = bodyText.toLowerCase();
+    const wordCount = countWords(bodyText);
+    const headings = extractHeadings(html);
+    const images = extractImages(html);
+    const links = extractLinks(html);
+    const firstP = firstParagraph(html);
+    const focusSlug = focus.replace(/\s+/g, "-");
+
+    const c = []; // checks — { level: 'good'|'warn'|'error'|'info', pass, text }
+    const push = (level, pass, text) => c.push({ level, pass, text });
+
+    // --- Focus keyword gate ---
+    if (!focus) {
+      push("info", false, "Set a focus keyword to unlock the full SEO analysis.");
+    }
+
+    // --- Title (30–60 chars, contains focus) ---
+    if (title.length === 0) {
+      push("error", false, "Add a post title.");
+    } else if (title.length < 30) {
+      push("warn", false, `Title is short (${title.length} chars). Aim for 30–60.`);
+    } else if (title.length > 60) {
+      push("warn", false, `Title is long (${title.length} chars). Aim for 30–60 so Google doesn't truncate it.`);
+    } else {
+      push("good", true, `Title length is ideal (${title.length} chars).`);
+    }
+    if (focus) {
+      if (title.toLowerCase().includes(focus)) {
+        push("good", true, "Focus keyword appears in the title.");
+      } else {
+        push("warn", false, "Focus keyword doesn't appear in the title.");
       }
     }
 
-    // -------------------------------------------------------
-    // Boot
-    // -------------------------------------------------------
-    (async () => {
-      if (!(await requireSession())) return;
-      initQuill();
-      bindFieldEvents();
+    // --- Meta description (120–160, contains focus) ---
+    if (meta.length === 0) {
+      push("error", false, "Add a meta description — this is what Google shows under your title.");
+    } else if (meta.length < 120) {
+      push("warn", false, `Meta description is short (${meta.length} chars). Aim for 120–160.`);
+    } else if (meta.length > 160) {
+      push("warn", false, `Meta description is long (${meta.length} chars). Google may truncate it around 160.`);
+    } else {
+      push("good", true, `Meta description length is ideal (${meta.length} chars).`);
+    }
+    if (focus) {
+      if (meta.toLowerCase().includes(focus)) {
+        push("good", true, "Focus keyword appears in the meta description.");
+      } else {
+        push("warn", false, "Focus keyword doesn't appear in the meta description.");
+      }
+    }
 
-      const params = new URLSearchParams(location.search);
-      const id = params.get("id");
-      if (id) await loadExisting(id);
+    // --- Slug ---
+    if (!slug) {
+      push("warn", false, "Set a URL slug.");
+    } else if (slug.length > 75) {
+      push("warn", false, `Slug is long (${slug.length} chars). Keep under 75 for readability.`);
+    } else if (focus && !slug.includes(focusSlug)) {
+      push("warn", false, "Focus keyword doesn't appear in the URL slug.");
+    } else if (focus) {
+      push("good", true, "Focus keyword appears in the URL slug.");
+    } else {
+      push("good", true, "Slug is clean.");
+    }
+
+    // --- Excerpt ---
+    if (!excerpt) {
+      push("warn", false, "Add a short excerpt — it's used on the blog list and as a fallback description.");
+    } else {
+      push("good", true, "Excerpt is set.");
+    }
+
+    // --- Cover image ---
+    if (!coverUrl) {
+      push("warn", false, "Add a cover image — used for social sharing and blog cards.");
+    } else {
+      push("good", true, "Cover image is set.");
+    }
+
+    // --- Word count ---
+    if (wordCount < 300) {
+      push("warn", false, `Body is short (${wordCount} words). Aim for 300+ for search visibility.`);
+    } else if (wordCount >= 600) {
+      push("good", true, `In-depth content (${wordCount} words). Great for ranking.`);
+    } else {
+      push("good", true, `Word count is decent (${wordCount} words). 600+ ranks better.`);
+    }
+
+    // --- First paragraph contains focus ---
+    if (focus && firstP) {
+      if (firstP.toLowerCase().includes(focus)) {
+        push("good", true, "Focus keyword appears in the first paragraph.");
+      } else {
+        push("warn", false, "Try to use the focus keyword in the first paragraph.");
+      }
+    }
+
+    // --- Keyword density in body ---
+    if (focus && wordCount > 0) {
+      const count = occurrencesOfPhrase(bodyLower, focus);
+      const density = (count / wordCount) * 100;
+      if (count === 0) {
+        push("warn", false, "Focus keyword never appears in the body.");
+      } else if (density < 0.4) {
+        push("warn", false, `Focus keyword appears ${count}× (${density.toFixed(1)}% density). Aim for 0.5–2%.`);
+      } else if (density > 2.5) {
+        push("warn", false, `Focus keyword appears ${count}× (${density.toFixed(1)}% density). Feels like keyword stuffing.`);
+      } else {
+        push("good", true, `Focus keyword density is good (${count}× · ${density.toFixed(1)}%).`);
+      }
+    }
+
+    // --- Headings ---
+    const h2s = headings.filter(h => h.level === 2).length;
+    if (h2s === 0 && wordCount > 200) {
+      push("warn", false, "Add at least one H2 heading to structure your post.");
+    } else if (h2s > 0) {
+      push("good", true, `Post has ${h2s} H2 heading${h2s === 1 ? "" : "s"}.`);
+    }
+    if (focus && headings.length > 0) {
+      if (headings.some(h => h.text.toLowerCase().includes(focus))) {
+        push("good", true, "Focus keyword appears in a heading.");
+      } else {
+        push("warn", false, "Try to use the focus keyword in a heading.");
+      }
+    }
+
+    // --- Images alt text ---
+    if (images.length > 0) {
+      const missing = images.filter(i => !i.alt).length;
+      if (missing > 0) {
+        push("warn", false, `${missing} of ${images.length} images missing alt text.`);
+      } else {
+        push("good", true, `All ${images.length} image${images.length === 1 ? "" : "s"} have alt text.`);
+      }
+    } else if (wordCount > 300) {
+      push("info", false, "Consider adding at least one image to break up the text.");
+    }
+
+    // --- Links ---
+    if (links.length === 0 && wordCount > 300) {
+      push("info", false, "Consider linking to a related page (internal) or a source (external).");
+    } else if (links.length > 0) {
+      const internal = links.filter(l => l.internal).length;
+      const external = links.length - internal;
+      const parts = [];
+      if (internal > 0) parts.push(`${internal} internal`);
+      if (external > 0) parts.push(`${external} external`);
+      push("good", true, `Links: ${parts.join(" · ")}.`);
+    }
+
+    // --- Readability: average sentence length ---
+    if (bodyText.length > 0) {
+      const sentences = bodyText.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+      if (sentences.length > 0) {
+        const avg = sentences.reduce((acc, s) => acc + countWords(s), 0) / sentences.length;
+        if (avg > 25) {
+          push("warn", false, `Sentences are long (avg ${avg.toFixed(0)} words). Shorter sentences read easier.`);
+        } else if (avg > 0) {
+          push("good", true, `Sentence length is comfortable (avg ${avg.toFixed(0)} words).`);
+        }
+      }
+    }
+
+    // Compute score — count of good vs (good + warn + error), ignore 'info'
+    const scored = c.filter(x => x.level !== "info");
+    const good = scored.filter(x => x.pass).length;
+    const score = scored.length > 0 ? Math.round((good / scored.length) * 100) : 0;
+
+    return { score, checks: c };
+  }
+
+  function renderSeo({ score, checks }) {
+    state.seoScore = score;
+    // Score ring
+    const ring = document.getElementById("scoreRing");
+    const fg = document.getElementById("scoreRingFg");
+    const val = document.getElementById("scoreValue");
+    ring.classList.remove("score--poor", "score--ok", "score--good");
+    if (score < 50) ring.classList.add("score--poor");
+    else if (score < 80) ring.classList.add("score--ok");
+    else ring.classList.add("score--good");
+    val.textContent = score;
+    fg.setAttribute("stroke-dashoffset", SCORE_RING_C - (SCORE_RING_C * score) / 100);
+
+    const label = document.getElementById("scoreLabel");
+    const sub = document.getElementById("scoreSubtext");
+    if (!document.getElementById("focus_keyword").value.trim()) {
+      label.textContent = "Add a focus keyword";
+      sub.textContent = "SEO analysis will appear here.";
+    } else if (score >= 80) {
+      label.textContent = "Great SEO";
+      sub.textContent = "You're ready to publish.";
+    } else if (score >= 50) {
+      label.textContent = "Good, could be stronger";
+      sub.textContent = "Apply the suggestions below.";
+    } else {
+      label.textContent = "Needs improvement";
+      sub.textContent = "Fix the warnings below to rank better.";
+    }
+
+    // Check list
+    const list = document.getElementById("checksList");
+    const dots = { good: "✓", warn: "!", error: "×", info: "i" };
+    list.innerHTML = checks.map(c => `
+      <li class="check--${c.level}"><span class="check__dot">${dots[c.level] || "•"}</span>${escapeHtml(c.text)}</li>
+    `).join("");
+
+    // Summary counts
+    const goodN = checks.filter(c => c.pass && c.level === "good").length;
+    const total = checks.filter(c => c.level !== "info").length;
+    document.getElementById("checksSummary").textContent = total > 0 ? `${goodN}/${total} passed` : "";
+  }
+
+  // Debounced SEO run so we don't hammer analysis on every keystroke
+  let seoTimer = null;
+  function debouncedSeo() {
+    if (seoTimer) clearTimeout(seoTimer);
+    seoTimer = setTimeout(() => renderSeo(runSeoAnalysis()), 250);
+  }
+
+  //---------------------------------------------------------
+  // Initialise Quill
+  //---------------------------------------------------------
+  function initQuill() {
+    const toolbar = [
+      [{ font: QFont.whitelist }, { size: QSize.whitelist }],
+      [{ header: [1, 2, 3, 4, false] }],
+      ["bold", "italic", "underline", "strike"],
+      [{ color: [] }, { background: [] }],
+      [{ align: [] }],
+      [{ list: "ordered" }, { list: "bullet" }, { indent: "-1" }, { indent: "+1" }],
+      ["blockquote", "hr"],
+      ["link", "image", "video"],
+      ["clean"],
+    ];
+
+    const q = new Quill("#editor", {
+      theme: "snow",
+      placeholder: "Start writing your post here… (drag images in, use the toolbar for formatting)",
+      modules: {
+        toolbar: {
+          container: toolbar,
+          handlers: {
+            image: quillImageHandler,
+            hr: function () {
+              const range = this.quill.getSelection(true) || { index: this.quill.getLength() };
+              this.quill.insertEmbed(range.index, 'hr', true, 'user');
+              this.quill.setSelection(range.index + 1, 0);
+            },
+          },
+        },
+        history: { delay: 500, maxStack: 250, userOnly: true },
+      },
+    });
+
+    state.quill = q;
+    q.on("text-change", (_delta, _old, source) => {
+      if (source === "user") {
+        markDirty();
+        updateStats();
+        debouncedSeo();
+      }
+    });
+    return q;
+  }
+
+  //---------------------------------------------------------
+  // Load an existing post
+  //---------------------------------------------------------
+  async function loadExisting(id) {
+    try {
+      const { post } = await AdminAPI.get(`/api/admin/posts?id=${id}`);
+      state.id = post.id;
+      state.slugTouched = true;
+      document.getElementById("pageTitle").textContent = post.title || "Edit post";
+      document.getElementById("title").value = post.title || "";
+      document.getElementById("slug").value = post.slug || "";
+      document.getElementById("meta_description").value = post.meta_description || "";
+      document.getElementById("keywords").value = post.keywords || "";
+      document.getElementById("og_image").value = post.og_image || "";
+      document.getElementById("canonical_url").value = post.canonical_url || "";
+      document.getElementById("excerpt").value = post.excerpt || "";
+      document.getElementById("focus_keyword").value = post.focus_keyword || "";
+      document.getElementById("author").value = post.author || "Paras Geramian, RP (Qualifying)";
+      document.getElementById("categories").value = post.categories || "";
+      document.getElementById("published").checked = !!post.published;
+      setCover(post.cover_image || "");
+
+      // Body: convert legacy markdown → HTML for Quill
+      let bodyHtml = post.body || "";
+      if ((post.body_format || "markdown") === "markdown" && bodyHtml) {
+        bodyHtml = markdownToHtml(bodyHtml);
+      }
+      if (state.quill && bodyHtml) {
+        state.quill.clipboard.dangerouslyPasteHTML(bodyHtml, "silent");
+      }
+
+      // Update UI
+      autoResize(document.getElementById("title"));
+      autoResize(document.getElementById("excerpt"));
       updatePreview();
+      updateStats();
+      debouncedSeo();
 
-      document.getElementById("saveBtn").addEventListener("click", () => save(false));
-      document.getElementById("saveDraftBtn").addEventListener("click", () => save(true));
+      if (post.published) {
+        const link = document.getElementById("viewLive");
+        link.href = `/blog/${post.slug}`;
+        link.classList.remove("hidden");
+      }
 
-      window.addEventListener("beforeunload", (e) => {
-        if (state.dirty) { e.preventDefault(); e.returnValue = ""; }
+      state.dirty = false;
+      setSaveStatus("", `Last saved ${fmtRelative(post.updated_at)}`);
+    } catch (err) {
+      showAlert(document.getElementById("alert"), "Couldn't load post: " + err.message, "error");
+    }
+  }
+
+  //---------------------------------------------------------
+  // Save
+  //---------------------------------------------------------
+  async function save({ asDraft = false, silent = false, keepPublishState = false } = {}) {
+    const alertBox = document.getElementById("alert");
+    const publishBtn = document.getElementById("publishBtn");
+    const draftBtn = document.getElementById("saveDraftBtn");
+    if (!silent) alertBox.innerHTML = "";
+
+    const title = document.getElementById("title").value.trim();
+    if (!title) {
+      showAlert(alertBox, "Title is required.", "error");
+      return;
+    }
+
+    let bodyHtml = state.quill ? state.quill.root.innerHTML : "";
+    if (bodyHtml === "<p><br></p>") bodyHtml = "";
+
+    const publishedCheckbox = document.getElementById("published").checked;
+    const wantPublished = keepPublishState
+      ? publishedCheckbox
+      : (asDraft ? false : publishedCheckbox);
+
+    const payload = {
+      title,
+      slug: document.getElementById("slug").value.trim() || slugify(title),
+      meta_description: document.getElementById("meta_description").value.trim(),
+      keywords: document.getElementById("keywords").value.trim(),
+      cover_image: coverUrl,
+      og_image: document.getElementById("og_image").value.trim(),
+      canonical_url: document.getElementById("canonical_url").value.trim(),
+      excerpt: document.getElementById("excerpt").value.trim(),
+      focus_keyword: document.getElementById("focus_keyword").value.trim(),
+      author: document.getElementById("author").value.trim(),
+      categories: document.getElementById("categories").value.trim(),
+      body: bodyHtml,
+      body_format: "html",
+      published: wantPublished,
+      seo_score: state.seoScore,
+    };
+
+    setSaveStatus("saving", silent ? "Autosaving…" : "Saving…");
+    publishBtn.disabled = true; draftBtn.disabled = true;
+    try {
+      if (state.id) {
+        await AdminAPI.patch("/api/admin/posts", { id: state.id, ...payload });
+      } else {
+        const res = await AdminAPI.post("/api/admin/posts", payload);
+        state.id = res.id;
+        const url = new URL(window.location.href);
+        url.searchParams.set("id", res.id);
+        window.history.replaceState({}, "", url.toString());
+      }
+      state.dirty = false;
+      document.getElementById("pageTitle").textContent = title;
+      setSaveStatus("", "All changes saved");
+
+      // Update "View live" link
+      const link = document.getElementById("viewLive");
+      if (payload.published) {
+        link.href = `/blog/${payload.slug}`;
+        link.classList.remove("hidden");
+      } else {
+        link.classList.add("hidden");
+      }
+
+      if (!silent) {
+        showAlert(alertBox, payload.published ? "Published." : "Saved as draft.", "success");
+      }
+    } catch (err) {
+      setSaveStatus("error", "Save failed");
+      showAlert(alertBox, err.message, "error");
+    } finally {
+      publishBtn.disabled = false; draftBtn.disabled = false;
+    }
+  }
+
+  //---------------------------------------------------------
+  // Delete
+  //---------------------------------------------------------
+  async function deletePost() {
+    if (!state.id) { alert("Save the post first before deleting."); return; }
+    if (!confirm("Delete this post? This can't be undone.")) return;
+    try {
+      await AdminAPI.del(`/api/admin/posts?id=${state.id}`);
+      window.location.href = "/admin/blog.html";
+    } catch (err) {
+      showAlert(document.getElementById("alert"), err.message, "error");
+    }
+  }
+
+  //---------------------------------------------------------
+  // Bind field events
+  //---------------------------------------------------------
+  function bindFields() {
+    const inputs = ["title", "slug", "meta_description", "keywords", "og_image", "canonical_url", "excerpt", "focus_keyword", "author", "categories"];
+    inputs.forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener("input", () => {
+        markDirty();
+        updatePreview();
+        debouncedSeo();
+        if (id === "title" || id === "excerpt") autoResize(el);
       });
-    })();
+    });
+    document.getElementById("published").addEventListener("change", () => {
+      markDirty();
+    });
+
+    // Title auto-slug
+    document.getElementById("title").addEventListener("input", () => {
+      if (!state.slugTouched && !state.id) {
+        document.getElementById("slug").value = slugify(document.getElementById("title").value);
+        updatePreview();
+      }
+    });
+    document.getElementById("slug").addEventListener("input", () => {
+      state.slugTouched = true;
+      const v = document.getElementById("slug").value;
+      const cleaned = v.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "");
+      if (v !== cleaned) document.getElementById("slug").value = cleaned;
+    });
+
+    // Sidebar tabs
+    document.querySelectorAll(".side-tabs button").forEach(b => {
+      b.addEventListener("click", () => {
+        document.querySelectorAll(".side-tabs button").forEach(x => x.classList.remove("is-active"));
+        b.classList.add("is-active");
+        const tab = b.dataset.tab;
+        document.querySelectorAll(".side-panel").forEach(p => {
+          p.classList.toggle("is-active", p.dataset.panel === tab);
+        });
+      });
+    });
+
+    // Top-bar actions
+    document.getElementById("saveDraftBtn").addEventListener("click", () => save({ asDraft: true }));
+    document.getElementById("publishBtn").addEventListener("click", () => {
+      document.getElementById("published").checked = true;
+      save({ asDraft: false });
+    });
+    document.getElementById("deleteBtn").addEventListener("click", deletePost);
+  }
+
+  //---------------------------------------------------------
+  // Boot
+  //---------------------------------------------------------
+  (async () => {
+    if (!(await requireSession())) return;
+    initQuill();
+    bindFields();
+    bindCover();
+    bindEditorDrop();
+
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
+    if (id) await loadExisting(id);
+
+    autoResize(document.getElementById("title"));
+    autoResize(document.getElementById("excerpt"));
+    updatePreview();
+    updateStats();
+    debouncedSeo();
+
+    // Cmd/Ctrl+S = save draft
+    window.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        save({ asDraft: true });
+      }
+    });
+    window.addEventListener("beforeunload", (e) => {
+      if (state.dirty) { e.preventDefault(); e.returnValue = ""; }
+    });
+  })();
   </script>
 </body>
 </html>
