@@ -500,22 +500,42 @@ h3 { font-size: 1.15rem; line-height: 1.25; }
    Blog editor (v2 — Wix-style, clean two-pane)
    ========================= */
 
-/* Whole editor page background */
-body.editor-body-bg { background: #FBF9F4; }
-html.editor-html-full, body.editor-body-bg { height: 100%; }
+/* Whole editor page background — locked to viewport, no page scroll.
+   Only the two columns inside .editor-page scroll independently. */
+body.editor-body-bg {
+  background: #FBF9F4;
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+}
 
 .editor-page {
   display: grid;
   grid-template-columns: 1fr 380px;
   gap: 0;
   background: transparent;
-  /* No min-height — the canvas grows with content; the sidebar sticks. */
+  height: calc(100vh - 60px);   /* fill viewport under the 60px topbar */
+  overflow: hidden;
 }
 
+/* Left column wrapper — this is what actually scrolls */
+.editor-col {
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  overscroll-behavior: contain;
+}
+.editor-col::-webkit-scrollbar { width: 10px; }
+.editor-col::-webkit-scrollbar-thumb {
+  background: var(--admin-border-strong);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.editor-col::-webkit-scrollbar-thumb:hover { background: var(--admin-muted); background-clip: content-box; }
+
 .editor-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 40;
+  height: 60px;
   background: #FFFFFF;
   border-bottom: 1px solid var(--admin-border);
   padding: 12px 24px;
@@ -523,6 +543,7 @@ html.editor-html-full, body.editor-body-bg { height: 100%; }
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  z-index: 40;
 }
 .editor-topbar__left { display: flex; align-items: center; gap: 14px; }
 .editor-topbar__back {
@@ -669,19 +690,14 @@ html.editor-html-full, body.editor-body-bg { height: 100%; }
 }
 .editor-stats span strong { color: var(--admin-ink); font-weight: 600; }
 
-/* --- Right sidebar (SEO + Settings) --- */
-/* Sticky within the grid: fills viewport, scrolls inside itself so the
-   writing area doesn't share a scrollbar with it. */
+/* --- Right sidebar (SEO + Settings) — fills its grid column, scrolls internally --- */
 .editor-side {
   background: #FFFFFF;
   border-left: 1px solid var(--admin-border);
   padding: 24px 24px 40px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  height: calc(100vh - 60px);
-  position: sticky;
-  top: 60px;
-  align-self: start;
+  min-width: 0;
 }
 .editor-side::-webkit-scrollbar { width: 8px; }
 .editor-side::-webkit-scrollbar-thumb {
@@ -856,15 +872,15 @@ html.editor-html-full, body.editor-body-bg { height: 100%; }
   line-height: 1.75;
 }
 
-/* Toolbar — subtle sticky rail that stays out of the way */
+/* Toolbar — subtle sticky rail; sticks to the top of the writing column as you scroll */
 .editor-canvas .ql-toolbar.ql-snow {
   position: sticky;
-  top: 60px;
+  top: 0;
   z-index: 20;
   border: none;
   border-bottom: 1px solid var(--admin-border);
   border-radius: 0;
-  background: rgba(251, 249, 244, 0.92);
+  background: rgba(251, 249, 244, 0.96);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   padding: 10px 0;
@@ -1033,16 +1049,29 @@ html.editor-html-full, body.editor-body-bg { height: 100%; }
 }
 .ql-snow .ql-toolbar button.ql-hr:hover::after { color: var(--admin-brand); }
 
-/* Mobile — collapse to single column, sidebar becomes a drawer */
+/* Mobile — single column, page scrolls normally, sidebar sits below */
 @media (max-width: 1000px) {
-  .editor-page { grid-template-columns: 1fr; }
-  .editor-canvas { padding: 20px 20px 60px; }
+  body.editor-body-bg {
+    height: auto;
+    overflow: auto;
+  }
+  .editor-page {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+  .editor-col {
+    overflow: visible;
+  }
+  .editor-canvas { padding: 20px 20px 40px; }
   .editor-side {
-    position: static;
-    max-height: none;
+    overflow: visible;
     border-left: none;
     border-top: 1px solid var(--admin-border);
     padding: 20px;
+  }
+  .editor-canvas .ql-toolbar.ql-snow {
+    position: static;
   }
   .post-title { font-size: 1.8rem; }
 }

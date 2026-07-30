@@ -29,6 +29,7 @@
         <span id="saveStatusText">Ready</span>
       </div>
       <a id="viewLive" class="btn btn--ghost btn--sm hidden" target="_blank" rel="noopener">View live ↗</a>
+      <button type="button" class="btn btn--ghost btn--sm" id="previewBtn">Preview</button>
       <button type="button" class="btn btn--ghost btn--sm" id="saveDraftBtn">Save draft</button>
       <button type="button" class="btn btn--sm" id="publishBtn">Publish</button>
     </div>
@@ -36,8 +37,9 @@
 
   <div class="editor-page">
 
-    <!-- ============ LEFT: CANVAS ============ -->
-    <div class="editor-canvas">
+    <!-- ============ LEFT: CANVAS COLUMN (scrolls independently) ============ -->
+    <div class="editor-col">
+      <div class="editor-canvas">
       <div id="alert"></div>
 
       <!-- Cover image drag/drop -->
@@ -73,6 +75,7 @@
         <span><strong id="statWords">0</strong> words</span>
         <span><strong id="statReading">0 min</strong> read</span>
         <span><strong id="statImages">0</strong> images</span>
+      </div>
       </div>
     </div>
 
@@ -1045,6 +1048,26 @@
       save({ asDraft: false });
     });
     document.getElementById("deleteBtn").addEventListener("click", deletePost);
+    document.getElementById("previewBtn").addEventListener("click", async () => {
+      const alertBox = document.getElementById("alert");
+      if (!document.getElementById("title").value.trim()) {
+        showAlert(alertBox, "Add a title before previewing.", "warn");
+        return;
+      }
+      const btn = document.getElementById("previewBtn");
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = "Preparing…";
+      try {
+        // Save silently, preserve current publish state (preview shouldn't accidentally publish)
+        await save({ silent: true, keepPublishState: true });
+        if (state.id) {
+          const slug = document.getElementById("slug").value.trim();
+          window.open(`/blog/${encodeURIComponent(slug)}?preview=1`, "_blank", "noopener");
+        }
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
   }
 
   //---------------------------------------------------------

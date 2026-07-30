@@ -1,4 +1,5 @@
 import { sql, ensureSchema } from "../lib/db.js";
+import { readCookie, verifyAdminToken } from "../lib/auth.js";
 
 const SITE_URL = "https://www.saymorepsychotherapy.ca";
 
@@ -110,12 +111,23 @@ function isoDate(d) {
   return new Date(d).toISOString();
 }
 
-function buildHtml(post) {
+function stripTags(html) {
+  return String(html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+function readingMinutes(html) {
+  const words = stripTags(html).split(" ").filter(Boolean).length;
+  return Math.max(1, Math.round(words / 220));
+}
+
+function buildHtml(post, opts = {}) {
+  const isPreview = !!opts.isPreview;
+  const isUnpublishedPreview = isPreview && !post.published;
+
   const title = post.title || "Blog";
   const desc =
     post.meta_description ||
     post.excerpt ||
-    (post.body ? String(post.body).replace(/[#*_>`\-]/g, "").slice(0, 155).trim() + "…" : "Notes from Say More Psychotherapy.");
+    (post.body ? stripTags(post.body).slice(0, 155).trim() + "…" : "Notes from Say More Psychotherapy.");
   const url = `${SITE_URL}/blog/${post.slug}`;
   const canonical = post.canonical_url || url;
   const image = post.og_image || post.cover_image || `${SITE_URL}/main%20hero%20image.png`;
@@ -125,6 +137,10 @@ function buildHtml(post) {
   const dtPublished = isoDate(post.published_at);
   const dtModified = isoDate(post.updated_at || post.published_at);
   const dtHuman = fmtDate(post.published_at);
+  const readMin = readingMinutes(bodyHtml);
+  const robots = post.published && !isPreview
+    ? "index, follow, max-snippet:-1, max-image-preview:large"
+    : "noindex, nofollow";
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -160,7 +176,7 @@ function buildHtml(post) {
   ${keywords ? `<meta name="keywords" content="${escapeAttr(keywords)}" />` : ""}
   <link rel="canonical" href="${escapeAttr(canonical)}" />
   <meta name="author" content="${escapeAttr(author)}" />
-  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+  <meta name="robots" content="${robots}" />
 
   <link rel="icon" type="image/jpeg" href="/logo.jpg" />
   <link rel="apple-touch-icon" href="/logo.jpg" />
@@ -288,6 +304,11 @@ function buildHtml(post) {
     </div>
   </div>
 
+  ${isUnpublishedPreview ? `<div class="preview-banner">
+    <span class="preview-banner__dot"></span>
+    <strong>Preview mode</strong> — this post is a draft and is not yet visible to the public.
+  </div>` : ""}
+
   <article class="blog-post">
     <div class="wrap wrap--narrow">
       <a href="/blog.html" class="back-link">
@@ -304,6 +325,8 @@ function buildHtml(post) {
         <div class="blog-post__meta">
           <span>${escapeHtml(author)}</span>
           ${dtHuman ? `<span aria-hidden="true">·</span><time datetime="${dtPublished}">${escapeHtml(dtHuman)}</time>` : ""}
+          <span aria-hidden="true">·</span>
+          <span>${readMin} min read</span>
         </div>
       </header>
 
@@ -314,6 +337,22 @@ function buildHtml(post) {
       </div>
 
       <hr class="blog-post__sep">
+
+      <aside class="blog-post__author">
+        <div class="blog-post__author-avatar">
+          <img src="/logo.jpg" alt="Say More Psychotherapy" loading="lazy" />
+        </div>
+        <div class="blog-post__author-body">
+          <div class="blog-post__author-eyebrow">Written by</div>
+          <h3 class="blog-post__author-name">${escapeHtml(author.split(",")[0] || "Paras Geramian")}</h3>
+          <p class="blog-post__author-credentials">${escapeHtml(author.includes(",") ? author.split(",").slice(1).join(",").trim() : "Registered Psychotherapist (Qualifying) · CRPO")}</p>
+          <p class="blog-post__author-bio">Paras is a relational psychotherapist working in Brampton and across Ontario. Her practice draws from psychodynamic, mindfulness-based, and somatic traditions — slowing things down enough to notice the patterns shaping your life.</p>
+          <div class="blog-post__author-links">
+            <a href="/about.html">More about Paras →</a>
+            <a href="/consultation.html">Book a free consultation →</a>
+          </div>
+        </div>
+      </aside>
 
       <aside class="blog-post__cta">
         <h3>Considering therapy?</h3>
@@ -412,22 +451,47 @@ export default async function handler(req, res) {
 
     await ensureSchema();
 
-    const rows = await sql`
-      SELECT slug, title, meta_description, cover_image, og_image, body, body_format,
-             excerpt, author, keywords, canonical_url, published_at, updated_at
-      FROM posts
-      WHERE slug = ${slug} AND published = TRUE
-      LIMIT 1
-    `;
+    // Preview mode: authenticated admin can render an unpublished draft.
+    // Requested with ?preview=1. Anyone without a valid admin cookie sees the
+    // normal "must be published" path.
+    const wantsPreview = String((req.query && req.query.preview) || "") === "1";
+    let previewAuthed = false;
+    if (wantsPreview) {
+      try {
+        const token = readCookie(req);
+        if (token) previewAuthed = await verifyAdminToken(token);
+      } catch { /* fall through — treat as anonymous */ }
+    }
+
+    const rows = previewAuthed
+      ? await sql`
+          SELECT slug, title, meta_description, cover_image, og_image, body, body_format,
+                 excerpt, author, keywords, canonical_url, published, published_at, updated_at
+          FROM posts
+          WHERE slug = ${slug}
+          LIMIT 1
+        `
+      : await sql`
+          SELECT slug, title, meta_description, cover_image, og_image, body, body_format,
+                 excerpt, author, keywords, canonical_url, published, published_at, updated_at
+          FROM posts
+          WHERE slug = ${slug} AND published = TRUE
+          LIMIT 1
+        `;
 
     if (!rows.length) {
       res.status(404).setHeader("Content-Type", "text/html; charset=utf-8");
       return res.end(notFoundHtml());
     }
 
-    const html = buildHtml(rows[0]);
+    const html = buildHtml(rows[0], { isPreview: previewAuthed });
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
+    // Never cache preview responses — the draft can change moment-to-moment.
+    if (previewAuthed) {
+      res.setHeader("Cache-Control", "private, no-store");
+    } else {
+      res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
+    }
     res.status(200).end(html);
   } catch (err) {
     console.error("blog-post error:", err);
