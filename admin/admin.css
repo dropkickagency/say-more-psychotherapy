@@ -502,13 +502,14 @@ h3 { font-size: 1.15rem; line-height: 1.25; }
 
 /* Whole editor page background */
 body.editor-body-bg { background: #FBF9F4; }
+html.editor-html-full, body.editor-body-bg { height: 100%; }
 
 .editor-page {
   display: grid;
   grid-template-columns: 1fr 380px;
   gap: 0;
-  min-height: calc(100vh - 60px);
   background: transparent;
+  /* No min-height — the canvas grows with content; the sidebar sticks. */
 }
 
 .editor-topbar {
@@ -560,10 +561,11 @@ body.editor-body-bg { background: #FBF9F4; }
 
 /* --- Canvas (left column: cover, title, excerpt, editor body) --- */
 .editor-canvas {
-  padding: 40px 48px 80px;
+  padding: 32px 48px 40px;
   max-width: 880px;
   margin: 0 auto;
   width: 100%;
+  min-width: 0;
 }
 
 .cover-drop {
@@ -668,16 +670,25 @@ body.editor-body-bg { background: #FBF9F4; }
 .editor-stats span strong { color: var(--admin-ink); font-weight: 600; }
 
 /* --- Right sidebar (SEO + Settings) --- */
+/* Sticky within the grid: fills viewport, scrolls inside itself so the
+   writing area doesn't share a scrollbar with it. */
 .editor-side {
   background: #FFFFFF;
   border-left: 1px solid var(--admin-border);
-  padding: 24px 24px 60px;
+  padding: 24px 24px 40px;
   overflow-y: auto;
-  max-height: calc(100vh - 60px);
+  overscroll-behavior: contain;
+  height: calc(100vh - 60px);
   position: sticky;
   top: 60px;
-  align-self: flex-start;
+  align-self: start;
 }
+.editor-side::-webkit-scrollbar { width: 8px; }
+.editor-side::-webkit-scrollbar-thumb {
+  background: var(--admin-border-strong);
+  border-radius: 4px;
+}
+.editor-side::-webkit-scrollbar-thumb:hover { background: var(--admin-muted); }
 
 .side-tabs {
   display: flex;
@@ -825,15 +836,15 @@ body.editor-body-bg { background: #FBF9F4; }
 .editor-canvas .ql-container.ql-snow {
   border: none;
   background: transparent;
-  min-height: 540px;
+  min-height: 320px;
   font-family: 'Manrope', -apple-system, system-ui, sans-serif;
   font-size: 17.5px;
 }
 .editor-canvas .ql-editor {
-  padding: 8px 0 100px;
+  padding: 8px 0 24px;
   line-height: 1.75;
   color: var(--admin-ink);
-  min-height: 500px;
+  min-height: 280px;
   overflow-y: visible;
 }
 .editor-canvas .ql-editor.ql-blank::before {
@@ -943,6 +954,30 @@ body.editor-body-bg { background: #FBF9F4; }
   font-size: 0.9em;
   color: var(--admin-brand-dark);
 }
+
+/* Custom undo / redo icons (Quill doesn't ship these) */
+.editor-canvas .ql-toolbar button.ql-undo,
+.editor-canvas .ql-toolbar button.ql-redo {
+  position: relative;
+}
+.editor-canvas .ql-toolbar button.ql-undo::after,
+.editor-canvas .ql-toolbar button.ql-redo::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 18px 18px;
+  opacity: 0.7;
+  transition: opacity 120ms;
+}
+.editor-canvas .ql-toolbar button.ql-undo::after {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 7 3 13 9 13'/%3E%3Cpath d='M3.51 13a9 9 0 1 0 2.13-9.36L3 6'/%3E%3C/svg%3E");
+}
+.editor-canvas .ql-toolbar button.ql-redo::after {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='21 7 21 13 15 13'/%3E%3Cpath d='M20.49 13a9 9 0 1 1-2.13-9.36L21 6'/%3E%3C/svg%3E");
+}
+.editor-canvas .ql-toolbar button.ql-undo:hover::after,
+.editor-canvas .ql-toolbar button.ql-redo:hover::after { opacity: 1; }
 
 /* Font family classes matching Quill's whitelist */
 .ql-font-manrope   { font-family: 'Manrope', sans-serif !important; }
