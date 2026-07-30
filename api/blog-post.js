@@ -322,7 +322,7 @@ function buildHtml(post, opts = {}) {
 
         <div class="blog-post__byline">
           <div class="blog-post__byline-author">
-            <img class="blog-post__avatar" src="/about%20us%20image.png" alt="${escapeAttr(author.split(",")[0] || "Paras Geramian")}" loading="lazy" />
+            <img class="blog-post__avatar" src="/logo.jpg" alt="${escapeAttr(author.split(",")[0] || "Paras Geramian")}" loading="lazy" />
             <div class="blog-post__byline-text">
               <div class="blog-post__byline-name">Written by <a href="/about.html">${escapeHtml(author.split(",")[0] || "Paras Geramian")}</a></div>
               <div class="blog-post__byline-date">${dtHuman ? `Last Updated: <time datetime="${dtPublished}">${escapeHtml(dtHuman)}</time>` : ""} · ${readMin} min read</div>
@@ -368,7 +368,7 @@ function buildHtml(post, opts = {}) {
 
       <aside class="blog-post__author">
         <div class="blog-post__author-avatar">
-          <img src="/about%20us%20image.png" alt="${escapeAttr(author.split(",")[0] || "Paras Geramian")}" loading="lazy" />
+          <img src="/logo.jpg" alt="${escapeAttr(author.split(",")[0] || "Paras Geramian")}" loading="lazy" />
         </div>
         <div class="blog-post__author-body">
           <div class="blog-post__author-eyebrow">Written by</div>

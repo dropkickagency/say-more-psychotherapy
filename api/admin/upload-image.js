@@ -43,13 +43,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return res.status(501).json({
-      error:
-        "Image upload isn't configured yet. In your Vercel dashboard, go to Storage → Create → Blob, connect it to this project, then redeploy.",
-    });
-  }
-
   try {
     const body =
       typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
@@ -72,18 +65,33 @@ export default async function handler(req, res) {
       return res.status(413).json({ error: "Image is too large (max 8 MB)." });
     }
 
-    const key = makeKey(filename, mime);
+    // Preferred path: upload to Vercel Blob (fast, cached, cheap).
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const key = makeKey(filename, mime);
+      const blob = await put(key, buffer, {
+        access: "public",
+        contentType: mime,
+        addRandomSuffix: false,
+      });
+      return res.status(200).json({
+        url: blob.url,
+        size: buffer.length,
+        contentType: mime,
+        storage: "blob",
+      });
+    }
 
-    const blob = await put(key, buffer, {
-      access: "public",
-      contentType: mime,
-      addRandomSuffix: false, // we've already added our own random suffix
-    });
-
+    // Fallback: no Blob configured → embed the image inline as a data URL.
+    // Trade-off: bigger post size, slower first paint. But zero config,
+    // works immediately, no external dependency.
+    const dataUrl = `data:${mime};base64,${data}`;
     return res.status(200).json({
-      url: blob.url,
+      url: dataUrl,
       size: buffer.length,
       contentType: mime,
+      storage: "inline",
+      warning:
+        "Vercel Blob isn't configured, so this image is embedded inline in the post. This works, but posts with many images will be larger and slower to load. Enable Blob later for faster performance.",
     });
   } catch (err) {
     console.error("upload-image error:", err);
