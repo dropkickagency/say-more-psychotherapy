@@ -819,61 +819,130 @@ body.editor-body-bg { background: #FBF9F4; }
 .check--error .check__dot { background: var(--admin-danger); }
 .check--info  .check__dot { background: #5A7CA8; }
 
-/* --- Quill enhancements for the new editor --- */
+/* --- Quill: paper-like writing surface (no boxed textbox look) --- */
+
+/* Container — invisible; the writing sits directly on the canvas */
+.editor-canvas .ql-container.ql-snow {
+  border: none;
+  background: transparent;
+  min-height: 540px;
+  font-family: 'Manrope', -apple-system, system-ui, sans-serif;
+  font-size: 17.5px;
+}
+.editor-canvas .ql-editor {
+  padding: 8px 0 100px;
+  line-height: 1.75;
+  color: var(--admin-ink);
+  min-height: 500px;
+  overflow-y: visible;
+}
+.editor-canvas .ql-editor.ql-blank::before {
+  color: #C6BFB1;
+  font-style: normal;
+  font-size: 17.5px;
+  left: 0;
+  right: 0;
+  line-height: 1.75;
+}
+
+/* Toolbar — subtle sticky rail that stays out of the way */
 .editor-canvas .ql-toolbar.ql-snow {
   position: sticky;
   top: 60px;
   z-index: 20;
-  border-radius: var(--admin-radius-sm) var(--admin-radius-sm) 0 0;
-  border-color: var(--admin-border);
-  background: #FBF9F4;
-  padding: 8px 10px;
-  flex-wrap: wrap;
+  border: none;
+  border-bottom: 1px solid var(--admin-border);
+  border-radius: 0;
+  background: rgba(251, 249, 244, 0.92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  padding: 10px 0;
+  margin: 0 0 8px;
   display: flex;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 0;
 }
-.editor-canvas .ql-container.ql-snow {
-  border: 1px solid var(--admin-border);
-  border-radius: 0 0 var(--admin-radius-sm) var(--admin-radius-sm);
-  background: #FFFFFF;
-  min-height: 400px;
-  font-family: 'Manrope', -apple-system, system-ui, sans-serif;
-  font-size: 16px;
+.editor-canvas .ql-toolbar.ql-snow .ql-formats {
+  margin: 2px 12px 2px 0;
+  padding-right: 12px;
+  border-right: 1px solid var(--admin-border);
 }
-.editor-canvas .ql-editor {
-  padding: 28px 32px;
-  line-height: 1.7;
-  color: var(--admin-ink);
-  min-height: 380px;
+.editor-canvas .ql-toolbar.ql-snow .ql-formats:last-child {
+  border-right: none;
+  padding-right: 0;
 }
+.editor-canvas .ql-toolbar.ql-snow button {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  transition: background-color 120ms;
+}
+.editor-canvas .ql-toolbar.ql-snow button:hover,
+.editor-canvas .ql-toolbar.ql-snow button.ql-active {
+  background: var(--admin-brand-light);
+}
+
+/* Typography in the writing surface — matches the published post */
 .editor-canvas .ql-editor h1,
 .editor-canvas .ql-editor h2,
 .editor-canvas .ql-editor h3,
 .editor-canvas .ql-editor h4 {
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-weight: 500;
-  line-height: 1.2;
+  line-height: 1.15;
   color: var(--admin-ink);
+  letter-spacing: -0.005em;
 }
-.editor-canvas .ql-editor h1 { font-size: 2rem; margin: 1em 0 0.4em; }
-.editor-canvas .ql-editor h2 { font-size: 1.65rem; margin: 1em 0 0.4em; }
-.editor-canvas .ql-editor h3 { font-size: 1.3rem; margin: 0.9em 0 0.35em; }
-.editor-canvas .ql-editor h4 { font-size: 1.1rem; margin: 0.8em 0 0.3em; }
-.editor-canvas .ql-editor p  { margin: 0 0 1em; }
+.editor-canvas .ql-editor h1 { font-size: 2.2rem;  margin: 1.4em 0 0.35em; }
+.editor-canvas .ql-editor h2 { font-size: 1.75rem; margin: 1.4em 0 0.35em; }
+.editor-canvas .ql-editor h3 { font-size: 1.35rem; margin: 1.2em 0 0.3em; }
+.editor-canvas .ql-editor h4 { font-size: 1.15rem; margin: 1em 0 0.3em; font-weight: 600; font-family: 'Manrope', sans-serif; }
+.editor-canvas .ql-editor p  { margin: 0 0 1.15em; }
+.editor-canvas .ql-editor strong { font-weight: 600; }
+.editor-canvas .ql-editor em { font-style: italic; }
+.editor-canvas .ql-editor a {
+  color: var(--admin-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .editor-canvas .ql-editor blockquote {
   border-left: 3px solid var(--admin-accent);
-  padding: 4px 0 4px 16px;
+  padding: 6px 0 6px 20px;
   color: var(--admin-muted);
   font-style: italic;
-  margin: 1.2em 0;
+  margin: 1.4em 0;
 }
 .editor-canvas .ql-editor hr {
   border: none;
   border-top: 1px solid var(--admin-border-strong);
-  margin: 1.8em 0;
+  margin: 2em 0;
 }
-.editor-canvas .ql-editor img { border-radius: 8px; margin: 12px 0; }
-.editor-canvas .ql-editor iframe { border-radius: 8px; margin: 12px 0; }
+.editor-canvas .ql-editor img {
+  border-radius: 10px;
+  margin: 16px 0;
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+.editor-canvas .ql-editor iframe {
+  border-radius: 10px;
+  margin: 16px 0;
+  max-width: 100%;
+}
+.editor-canvas .ql-editor ul,
+.editor-canvas .ql-editor ol {
+  padding-left: 1.5em;
+  margin: 0 0 1.15em;
+}
+.editor-canvas .ql-editor li { margin: 0.35em 0; }
+.editor-canvas .ql-editor code {
+  background: #F3EFE7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Inter', ui-monospace, monospace;
+  font-size: 0.9em;
+  color: var(--admin-brand-dark);
+}
 
 /* Font family classes matching Quill's whitelist */
 .ql-font-manrope   { font-family: 'Manrope', sans-serif !important; }
