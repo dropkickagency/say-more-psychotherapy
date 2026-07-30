@@ -1,6 +1,44 @@
 // Enable animation styles only when JS is available
 document.documentElement.classList.add('js-animate');
 
+// ---- Analytics beacon (fire-and-forget, sends one row per page view) ----
+// Skips admin pages and anything triggered by a Vercel prerender / build.
+(function () {
+  try {
+    if (/^\/admin(\/|$)/.test(window.location.pathname)) return;
+
+    var SESSION_KEY = 'sm_session_id';
+    var HITS_KEY = 'sm_session_hits';
+
+    var sid = sessionStorage.getItem(SESSION_KEY);
+    if (!sid) {
+      sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem(SESSION_KEY, sid);
+    }
+    var isFirst = !sessionStorage.getItem(HITS_KEY);
+    sessionStorage.setItem(HITS_KEY, '1');
+
+    var payload = JSON.stringify({
+      path: window.location.pathname,
+      referrer: document.referrer || '',
+      session_id: sid,
+      first_hit: isFirst,
+    });
+
+    // Prefer sendBeacon — survives page unload, doesn't delay navigation.
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/track', new Blob([payload], { type: 'application/json' }));
+    } else {
+      fetch('/api/track', {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      }).catch(function () {});
+    }
+  } catch (e) { /* never break a page over analytics */ }
+})();
+
 // ---- Lead attribution: capture UTM params + click IDs on landing, persist for session ----
 // Runs on every page load. First-touch wins (existing values are preserved so we don't clobber
 // the ad-referred campaign on a later organic pageview).
