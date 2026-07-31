@@ -59,6 +59,7 @@
           </span>
         </div>
         <div class="insights-header__right">
+          <button type="button" id="seedBtn" class="btn btn--ghost btn--sm hidden" title="One-time backfill matching your Vercel historical numbers">Seed sample data</button>
           <div class="range-picker" id="rangePicker">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <select id="rangeSelect">
@@ -450,6 +451,9 @@
     try {
       const d = await AdminAPI.get(`/api/admin/insights?days=${state.days}`);
       renderAll(d);
+      // Show seed button when totals are essentially empty (fresh DB)
+      const empty = (d.totals?.pageviews || 0) < 50;
+      document.getElementById("seedBtn").classList.toggle("hidden", !empty);
     } catch (err) {
       showAlert(alertBox, "Couldn't load insights: " + err.message, "error");
     }
@@ -477,6 +481,26 @@
         document.getElementById('devicesList').classList.toggle('hidden', tabName !== 'devices');
         document.getElementById('browsersList').classList.toggle('hidden', tabName !== 'browsers');
       });
+    });
+    // Seed sample data (one-time backfill)
+    document.getElementById("seedBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("seedBtn");
+      if (!confirm("Backfill the last 30 days with sample data matching your Vercel historical numbers?\n\nThis runs once. Real visitor data continues to accumulate on top from now on.")) return;
+      btn.disabled = true; btn.textContent = "Seeding…";
+      try {
+        const r = await AdminAPI.post("/api/admin/seed-insights", {});
+        if (r.ok) {
+          showAlert(document.getElementById("alert"),
+            `Seeded ${r.sessions_seeded} sessions / ${r.pageviews_seeded} pageviews. Refreshing…`, "success");
+          setTimeout(load, 900);
+        } else {
+          showAlert(document.getElementById("alert"), r.reason || "Skipped — data already present.", "warn");
+        }
+      } catch (err) {
+        showAlert(document.getElementById("alert"), "Seed failed: " + err.message, "error");
+      } finally {
+        btn.disabled = false; btn.textContent = "Seed sample data";
+      }
     });
   }
 

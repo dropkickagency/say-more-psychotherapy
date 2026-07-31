@@ -620,9 +620,10 @@ h3 { font-size: 1.15rem; line-height: 1.25; }
   font-weight: 600;
   background: #F0EDE9;
   color: #5C5852;
+  line-height: 1.3;
 }
-.delta--good { background: #EAF3EE; color: #2F6B4E; }
-.delta--bad  { background: #FBEEEA; color: #7C2323; }
+.delta--good { background: #DCFCE7; color: #166534; }
+.delta--bad  { background: #FEE2E2; color: #991B1B; }
 
 .chart-wrap {
   padding: 20px 24px 8px;

@@ -418,18 +418,163 @@ async function handleInsights(req, res) {
   });
 }
 
+// ---- Seed insights (one-time backfill matching Vercel's historical numbers) ----
+// Generates realistic synthetic sessions across the last 30 days so the
+// Insights dashboard has meaningful data immediately. Idempotent — refuses
+// to re-seed if page_views already has more than 200 rows.
+async function handleSeedInsights(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (!assertDb(res)) return;
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  await ensureSchema();
+
+  const [countRow] = await sql`SELECT COUNT(*)::int AS c FROM page_views`;
+  if (countRow.c > 200) {
+    return res.status(200).json({
+      ok: false,
+      skipped: true,
+      existing_rows: countRow.c,
+      reason: "DB already has meaningful data — skipped to avoid double-seeding. Truncate page_views first if you want to re-seed.",
+    });
+  }
+
+  // ---- Distributions (from your Vercel dashboard) ----
+  const PAGES = [
+    ["/consultation.html", 274], ["/", 261], ["/services.html", 56],
+    ["/about.html", 50], ["/index.html", 49], ["/thank-you.html", 32],
+    ["/location.html", 19], ["/anxiety-therapy.html", 22],
+    ["/depression-counselling.html", 18], ["/couples-therapy.html", 18],
+    ["/relationship-issues.html", 18], ["/perinatal-postpartum.html", 15],
+    ["/mens-issues.html", 15], ["/parenting.html", 15], ["/adhd.html", 15],
+    ["/immigrants-identity.html", 15], ["/blog.html", 12],
+  ];
+  const COUNTRIES = [
+    ["CA", 0.89], ["US", 0.08], ["IE", 0.01], ["FR", 0.005],
+    ["MX", 0.003], ["PK", 0.003], ["GB", 0.005], ["DE", 0.002], ["IN", 0.002],
+  ];
+  const DEVICES = [["Mobile", 0.79], ["Desktop", 0.20], ["Tablet", 0.01]];
+  const OSES = [["iOS", 0.61], ["Android", 0.20], ["Windows", 0.11], ["macOS", 0.06], ["Linux", 0.02]];
+  const BROWSERS = [["Safari", 0.55], ["Chrome", 0.30], ["Edge", 0.08], ["Firefox", 0.05], ["Opera", 0.02]];
+  // Referrer distribution: ~35% of sessions have a referrer, rest direct
+  const REFERRERS = [
+    ["google.com", 111], ["instagram.com", 109],
+    ["m.facebook.com", 58], ["facebook.com", 22],
+    ["l.instagram.com", 14], ["l.facebook.com", 12],
+    ["psychologytoday.com", 5], ["google.ca", 3], ["linkedin.com", 2],
+    [null, 700], // direct traffic — no referrer
+  ];
+
+  // Sessions per day — spike early, tapering to recent. Sums to ~500.
+  const DAILY_SESSIONS = [
+    45, 42, 38, 30, 28,   // 30–26 days ago (spike)
+    25, 22, 20, 18, 16,   // 25–21 days ago
+    18, 20, 22, 20, 15,   // 20–16 days ago
+    12, 10,  8,  6,  5,   // 15–11 days ago
+     5,  5,  4,  4,  3,   // 10–6 days ago
+    10, 12,  6,  9, 14,   // 5–1 days ago (last week — recent uptick)
+  ];
+
+  function weighted(pairs) {
+    const total = pairs.reduce((s, p) => s + p[1], 0);
+    let r = Math.random() * total;
+    for (const [key, w] of pairs) { r -= w; if (r <= 0) return key; }
+    return pairs[pairs.length - 1][0];
+  }
+  function irand(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+
+  // ---- Generate rows ----
+  const rows = [];
+  const nowMs = Date.now();
+  let sessionCounter = 0;
+
+  DAILY_SESSIONS.forEach((sessionCount, dayIdx) => {
+    // dayIdx 0 = ~30 days ago, dayIdx 29 = today
+    const daysAgo = DAILY_SESSIONS.length - 1 - dayIdx;
+    const dayStartMs = nowMs - daysAgo * 86400000;
+
+    for (let s = 0; s < sessionCount; s++) {
+      sessionCounter++;
+      const sessionId = `seed_${sessionCounter}_${Math.random().toString(36).slice(2, 8)}`;
+      const startMs = dayStartMs + irand(0, 86400000);
+
+      // Bounce (single-hit) probability: recent traffic is less bouncy (~36%),
+      // older traffic bouncier (~65%). Matches the 30d-vs-7d bounce gap.
+      const bounceProb = daysAgo <= 7 ? 0.36 : 0.65;
+      const bounce = Math.random() < bounceProb;
+      const hitCount = bounce ? 1 : irand(2, 5);
+
+      const country = weighted(COUNTRIES);
+      const device = weighted(DEVICES);
+      const os = weighted(OSES);
+      const browser = weighted(BROWSERS);
+      const referrerHost = weighted(REFERRERS);
+      const referrer = referrerHost ? `https://${referrerHost}/` : null;
+
+      for (let h = 0; h < hitCount; h++) {
+        const path = weighted(PAGES);
+        const hitMs = startMs + h * irand(60000, 240000); // 1–4 min between hits
+        rows.push({
+          path,
+          referrer,
+          referrer_host: referrerHost,
+          country,
+          device_type: device,
+          os_name: os,
+          browser_name: browser,
+          session_id: sessionId,
+          is_first_hit: h === 0,
+          created_at: new Date(hitMs).toISOString(),
+        });
+      }
+    }
+  });
+
+  // ---- Bulk-insert via UNNEST ----
+  const CHUNK = 200;
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    await sql`
+      INSERT INTO page_views (
+        path, referrer, referrer_host, country,
+        device_type, os_name, browser_name, session_id, is_first_hit, created_at
+      )
+      SELECT * FROM UNNEST(
+        ${chunk.map(r => r.path)}::text[],
+        ${chunk.map(r => r.referrer)}::text[],
+        ${chunk.map(r => r.referrer_host)}::text[],
+        ${chunk.map(r => r.country)}::text[],
+        ${chunk.map(r => r.device_type)}::text[],
+        ${chunk.map(r => r.os_name)}::text[],
+        ${chunk.map(r => r.browser_name)}::text[],
+        ${chunk.map(r => r.session_id)}::text[],
+        ${chunk.map(r => r.is_first_hit)}::boolean[],
+        ${chunk.map(r => r.created_at)}::timestamptz[]
+      )
+    `;
+    inserted += chunk.length;
+  }
+
+  return res.status(200).json({
+    ok: true,
+    sessions_seeded: DAILY_SESSIONS.reduce((s, x) => s + x, 0),
+    pageviews_seeded: inserted,
+  });
+}
+
 // =============================================================
 // Router
 // =============================================================
 const ROUTES = {
-  "login":        handleLogin,
-  "logout":       handleLogout,
-  "session":      handleSession,
-  "overview":     handleOverview,
-  "leads":        handleLeads,
-  "posts":        handlePosts,
-  "upload-image": handleUploadImage,
-  "insights":     handleInsights,
+  "login":          handleLogin,
+  "logout":         handleLogout,
+  "session":        handleSession,
+  "overview":       handleOverview,
+  "leads":          handleLeads,
+  "posts":          handlePosts,
+  "upload-image":   handleUploadImage,
+  "insights":       handleInsights,
+  "seed-insights":  handleSeedInsights,
 };
 
 export default async function handler(req, res) {
