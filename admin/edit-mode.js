@@ -11,6 +11,7 @@
 
   var TEXT_TAGS = "h1, h2, h3, h4, h5, h6, p, li, a, span, blockquote, em, strong";
   var patches = new Map(); // element_path -> { element_type, new_content, original }
+  var history = [];        // stack of { element_path, element_type, prev, next } — undo pops from the end
 
   //---------- Utils ----------
   function elementPath(el) {
@@ -48,8 +49,72 @@
   function post(msg) { try { window.parent.postMessage(msg, "*"); } catch (e) {} }
 
   function markDirty() {
-    post({ type: "sm-edit-dirty", count: patches.size });
+    post({ type: "sm-edit-dirty", count: patches.size, history: history.length });
     updateToolbar();
+  }
+
+  // Push a history entry. `prev` is the state before this edit; `next`
+  // is the state after. Undo restores prev.
+  function pushHistory(entry) {
+    history.push(entry);
+    if (history.length > 200) history.shift();  // cap memory
+  }
+
+  // Apply a state to an element based on its type — used by both the
+  // initial edits and by undo.
+  function applyState(el, type, value) {
+    try {
+      if (type === "text") {
+        el.innerHTML = value;
+      } else if (type === "image") {
+        el.setAttribute("src", value);
+      } else if (type === "video") {
+        el.querySelectorAll("source").forEach(function (s) { s.remove(); });
+        el.setAttribute("src", value);
+        try { el.load(); } catch (e) {}
+      } else if (type === "bg-image") {
+        // bg entries store the whole CSS backgroundImage value (e.g. url("...") or "none")
+        el.style.backgroundImage = value === "none" ? "" : value;
+      }
+    } catch (e) {}
+  }
+
+  // Undo the most recent edit. If the reverted state matches the ORIGINAL
+  // (pre-any-edit) content, remove the patch entirely — otherwise write the
+  // reverted state as the current patch.
+  function undoOnce() {
+    var entry = history.pop();
+    if (!entry) return false;
+    var el = document.querySelector(entry.element_path);
+    if (!el) { markDirty(); return true; }
+
+    applyState(el, entry.element_type, entry.prev);
+
+    // Figure out what the patches map should look like now.
+    // If any earlier history entry for the same element_path exists, its
+    // `prev` was the state before that earlier edit. The `next` after
+    // that earlier edit is the state we should keep as the current patch.
+    // Simpler: walk backwards from the (now-popped) history — find the
+    // last remaining next for this element_path; that becomes the patch.
+    var still = null;
+    for (var i = history.length - 1; i >= 0; i--) {
+      if (history[i].element_path === entry.element_path) { still = history[i]; break; }
+    }
+    if (still) {
+      // A prior edit still stands — update the patch to reflect it
+      patches.set(entry.element_path, {
+        element_type: still.element_type,
+        new_content: still.next,
+        original: still.origSnapshot != null ? still.origSnapshot : (patches.get(entry.element_path) && patches.get(entry.element_path).original),
+      });
+      // And re-apply the still-standing state (already applied by the pop above if entry.prev === still.next)
+      if (still.next !== entry.prev) applyState(el, still.element_type, still.next);
+    } else {
+      // No prior edits — element is back to its original state
+      patches.delete(entry.element_path);
+    }
+    markDirty();
+    return true;
   }
 
   //---------- Small in-iframe status pill (no action buttons anymore) ----------
@@ -124,6 +189,9 @@
       if (patches.size === 0) return;
       window.location.reload();
     }
+    if (msg.type === "sm-edit-undo") {
+      undoOnce();
+    }
   });
 
   //---------- Text editing ----------
@@ -152,7 +220,11 @@
       el.setAttribute("contenteditable", "false");
       el.classList.remove("sm-editing");
       if (el.innerHTML !== original) {
-        patches.set(elementPath(el), { element_type: "text", new_content: el.innerHTML, original: original });
+        var path = elementPath(el);
+        var existing = patches.get(path);
+        var origSnapshot = existing ? existing.original : original;  // never lose the first-ever original
+        patches.set(path, { element_type: "text", new_content: el.innerHTML, original: origSnapshot });
+        pushHistory({ element_path: path, element_type: "text", prev: original, next: el.innerHTML, origSnapshot: origSnapshot });
         markDirty();
       }
       el.removeEventListener("blur", finish);
@@ -170,12 +242,31 @@
   function attachImageEditors() {
     document.querySelectorAll("img").forEach(function (img) {
       if (img.closest(".sm-edit-toolbar")) return;
+      if (img.closest(".sm-bg-edit-chip") || img.closest(".sm-video-edit-btn")) return;
+      // Skip tiny icons (favicons in the SVG blob, small brand marks, etc.)
+      var w = img.naturalWidth || img.width || 0;
+      var h = img.naturalHeight || img.height || 0;
+      var isTiny = w > 0 && h > 0 && w < 60 && h < 60;
       img.classList.add("sm-editable-image");
       img.addEventListener("click", function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
         pickFile("image/*", function (file) { replaceMedia(img, file, "src"); });
       });
+      if (isTiny) return;  // don't attach the overlay pill to tiny logos/icons
+
+      var overlay = document.createElement("button");
+      overlay.type = "button";
+      overlay.className = "sm-image-edit-btn";
+      overlay.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>Replace image</span>';
+      overlay.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        pickFile("image/*", function (file) { replaceMedia(img, file, "src"); });
+      });
+      var parent = img.parentElement;
+      if (parent && getComputedStyle(parent).position === "static") parent.style.position = "relative";
+      if (parent) parent.appendChild(overlay);
     });
   }
 
@@ -210,7 +301,11 @@
       video.setAttribute("src", url);
       try { video.load(); video.play().catch(function () {}); } catch (e) {}
       video.classList.remove("sm-uploading");
-      patches.set(elementPath(video), { element_type: "video", new_content: url, original: wasSrc });
+      var path = elementPath(video);
+      var existing = patches.get(path);
+      var origSnapshot = existing ? existing.original : wasSrc;
+      patches.set(path, { element_type: "video", new_content: url, original: origSnapshot });
+      pushHistory({ element_path: path, element_type: "video", prev: wasSrc, next: url, origSnapshot: origSnapshot });
       markDirty();
     }).catch(function (err) {
       video.classList.remove("sm-uploading");
@@ -224,7 +319,11 @@
     uploadMedia(file).then(function (url) {
       el.setAttribute(attr, url);
       el.classList.remove("sm-uploading");
-      patches.set(elementPath(el), { element_type: "image", new_content: url, original: wasSrc });
+      var path = elementPath(el);
+      var existing = patches.get(path);
+      var origSnapshot = existing ? existing.original : wasSrc;
+      patches.set(path, { element_type: "image", new_content: url, original: origSnapshot });
+      pushHistory({ element_path: path, element_type: "image", prev: wasSrc, next: url, origSnapshot: origSnapshot });
       markDirty();
     }).catch(function (err) {
       el.classList.remove("sm-uploading");
@@ -258,12 +357,17 @@
   }
 
   function replaceBackground(el, file) {
-    var was = getComputedStyle(el).backgroundImage;
+    var was = getComputedStyle(el).backgroundImage;   // full CSS value, e.g. url("/x.jpg") or none
     el.classList.add("sm-uploading");
     uploadMedia(file).then(function (url) {
-      el.style.backgroundImage = 'url("' + url + '")';
+      var nextCss = 'url("' + url + '")';
+      el.style.backgroundImage = nextCss;
       el.classList.remove("sm-uploading");
-      patches.set(elementPath(el), { element_type: "bg-image", new_content: url, original: was });
+      var path = elementPath(el);
+      var existing = patches.get(path);
+      var origSnapshot = existing ? existing.original : was;
+      patches.set(path, { element_type: "bg-image", new_content: url, original: origSnapshot });
+      pushHistory({ element_path: path, element_type: "bg-image", prev: was, next: nextCss, origSnapshot: origSnapshot });
       markDirty();
     }).catch(function (err) {
       el.classList.remove("sm-uploading");

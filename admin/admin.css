@@ -653,6 +653,8 @@ body.website-editor-body {
 .we-save-status.is-good { background: #DCFCE7; color: #166534; }
 .we-save-status.is-bad  { background: #FEE2E2; color: #991B1B; }
 .we-save-status.is-info { background: #E7EFFE; color: #1a3a80; }
+.we-icon-btn { padding-left: 10px; padding-right: 12px; }
+.we-icon-btn svg { color: currentColor; }
 .we-canvas__frame {
   flex: 1;
   background: #F3EEE2;
