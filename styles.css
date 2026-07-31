@@ -245,47 +245,33 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
-/* ---------- Image mockup placeholders ---------- */
+/* ---------- Image containers ---------- */
+/* Every .img-box / .therapist__portrait / .reel in the site now holds a real
+   image or video. The old mockup placeholder (gray gradient + diagonal hatch
+   with visibility:hidden on child images) has been removed — it was hiding
+   images uploaded through the editor. If a placeholder is needed later, add
+   an opt-in .is-placeholder class. */
 .img-box,
 .therapist__portrait,
 .reel {
-  background: linear-gradient(135deg, #E8E5E0 0%, #DAD6CE 100%) !important;
   position: relative;
+  overflow: hidden;
 }
 .img-box img,
 .therapist__portrait img,
-.reel img { visibility: hidden !important; }
-.img-box::before,
-.therapist__portrait::before,
-.reel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(45deg, transparent 0 24px, rgba(0,0,0,0.025) 24px 25px);
-  pointer-events: none;
+.reel img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
-.hero__image { background: transparent !important; }
-.hero__image img { visibility: visible !important; }
-.therapist__portrait { background: transparent !important; }
-.therapist__portrait::before { display: none !important; }
-.therapist__portrait img { visibility: visible !important; }
-.therapist__portrait.has-video { background: #000 !important; }
+.therapist__portrait.has-video { background: #000; }
 .therapist__portrait video {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  visibility: visible;
 }
-/* Service cards: show real images (no mockup hatch) */
-.service-card .img-box { background: transparent !important; }
-.service-card .img-box::before { display: none !important; }
-.service-card .img-box img { visibility: visible !important; }
-
-/* Any image-box marked .has-real-image shows the real image (no mockup hatch) */
-.img-box.has-real-image { background: transparent !important; }
-.img-box.has-real-image::before { display: none !important; }
-.img-box.has-real-image img { visibility: visible !important; width: 100%; height: 100%; object-fit: cover; }
 
 /* Reels: show real media (image OR video), no mockup hatch */
 .reel { background: #000 !important; }
