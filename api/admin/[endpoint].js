@@ -485,67 +485,75 @@ async function handleMigratePatches(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   await ensureSchema();
 
-  // Small metadata query first so we know the shape of the work.
   const [meta] = await sql`
-    SELECT COUNT(*)::int AS n, COALESCE(MAX(LENGTH(new_content))::bigint, 0) AS max_bytes
-    FROM content_patches
-    WHERE new_content LIKE 'data:%'
+    SELECT COUNT(*)::int AS n FROM content_patches WHERE new_content LIKE 'data:%'
   `;
-  if (meta.n === 0) return res.status(200).json({ ok: true, migrated: 0, skipped: 0, message: "Nothing to migrate." });
+  if (meta.n === 0) {
+    return res.status(200).json({ ok: true, migrated: 0, remaining: 0, done: true, message: "Nothing to migrate." });
+  }
 
-  // Grab IDs only (small payload) — we'll fetch each big blob one at a time
-  const idRows = await sql`
+  // Process ONE patch per invocation. A 2 MB blob takes several seconds
+  // to decode + INSERT + UPDATE, and Vercel Hobby caps function runtime
+  // at 10 seconds. Keeping it to one row per call is safe. The client
+  // loops until `done: true`.
+  const [target] = await sql`
     SELECT id FROM content_patches
     WHERE new_content LIKE 'data:%'
     ORDER BY id
-    LIMIT 200
+    LIMIT 1
   `;
-
-  let migrated = 0, skipped = 0, errors = 0;
-  const notes = [];
-
-  for (const { id } of idRows) {
-    try {
-      const rows = await sql`
-        SELECT id, page_path, element_path, new_content
-        FROM content_patches WHERE id = ${id}
-      `;
-      if (!rows.length) { skipped++; continue; }
-      const p = rows[0];
-      const m = String(p.new_content).match(/^data:([^;,]+);base64,(.+)$/);
-      if (!m) { skipped++; continue; }
-      const mime = m[1];
-      const buffer = Buffer.from(m[2], "base64");
-      if (buffer.length === 0) { skipped++; continue; }
-
-      const inserted = await sql`
-        INSERT INTO assets (mime, data, size)
-        VALUES (${mime}, ${buffer}, ${buffer.length})
-        RETURNING id
-      `;
-      const newUrl = `/api/asset/${inserted[0].id}`;
-
-      await sql`
-        UPDATE content_patches
-        SET new_content = ${newUrl}, updated_at = NOW()
-        WHERE id = ${p.id}
-      `;
-      migrated++;
-    } catch (err) {
-      errors++;
-      notes.push({ id, error: err && err.message ? err.message : String(err) });
-    }
+  if (!target) {
+    return res.status(200).json({ ok: true, migrated: 0, remaining: 0, done: true });
   }
 
-  return res.status(200).json({
-    ok: true,
-    scanned_total: meta.n,
-    scanned_this_run: idRows.length,
-    migrated,
-    skipped,
-    errors,
-    notes: notes.slice(0, 5),  // don't flood the response
-  });
+  try {
+    const rows = await sql`
+      SELECT id, page_path, element_path, new_content
+      FROM content_patches WHERE id = ${target.id}
+    `;
+    if (!rows.length) {
+      return res.status(200).json({ ok: true, migrated: 0, remaining: meta.n - 1, done: meta.n - 1 === 0 });
+    }
+    const p = rows[0];
+    const m = String(p.new_content).match(/^data:([^;,]+);base64,(.+)$/);
+    if (!m) {
+      // Malformed data URL — clear so we don't loop on it forever
+      await sql`UPDATE content_patches SET new_content = '' WHERE id = ${p.id}`;
+      return res.status(200).json({ ok: true, migrated: 0, skipped: 1, remaining: meta.n - 1, done: meta.n - 1 === 0 });
+    }
+    const mime = m[1];
+    const buffer = Buffer.from(m[2], "base64");
+    if (buffer.length === 0) {
+      await sql`UPDATE content_patches SET new_content = '' WHERE id = ${p.id}`;
+      return res.status(200).json({ ok: true, migrated: 0, skipped: 1, remaining: meta.n - 1, done: meta.n - 1 === 0 });
+    }
+
+    const inserted = await sql`
+      INSERT INTO assets (mime, data, size)
+      VALUES (${mime}, ${buffer}, ${buffer.length})
+      RETURNING id
+    `;
+    const newUrl = `/api/asset/${inserted[0].id}`;
+
+    await sql`
+      UPDATE content_patches SET new_content = ${newUrl}, updated_at = NOW() WHERE id = ${p.id}
+    `;
+
+    return res.status(200).json({
+      ok: true,
+      migrated: 1,
+      remaining: meta.n - 1,
+      done: meta.n - 1 === 0,
+      migrated_patch: { id: p.id, page_path: p.page_path, new_url: newUrl, size: buffer.length },
+    });
+  } catch (err) {
+    console.error("migrate error on patch", target.id, err);
+    return res.status(500).json({
+      ok: false,
+      error: err && err.message ? err.message : String(err),
+      remaining: meta.n,
+    });
+  }
 }
 
 // ---- Seed insights (one-time backfill matching Vercel's historical numbers) ----
