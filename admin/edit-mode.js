@@ -586,9 +586,9 @@
   function uploadMedia(file) {
     return new Promise(function (resolve, reject) {
       var isVideo = /^video\//.test(file.type || "");
-      var maxMb = isVideo ? 4 : 8;
-      if (file.size > maxMb * 1024 * 1024) {
-        return reject(new Error("File too large (max " + maxMb + " MB for " + (isVideo ? "videos" : "images") + ")"));
+      var MAX_MB = 3;  // matches server limit; ~3 MB raw = ~4 MB base64 JSON payload, safe under Vercel's 4.5 MB cap
+      if (file.size > MAX_MB * 1024 * 1024) {
+        return reject(new Error("File too large (max " + MAX_MB + " MB). Try a compressed version."));
       }
       var reader = new FileReader();
       reader.onload = async function (e) {

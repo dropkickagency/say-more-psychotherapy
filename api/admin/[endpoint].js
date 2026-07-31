@@ -290,12 +290,14 @@ async function handleUploadImage(req, res) {
   const isVideo = mimeLower.startsWith("video/");
   const buffer = Buffer.from(data, "base64");
   if (buffer.length === 0) return res.status(400).json({ error: "File data was empty." });
-  const MAX_BYTES = isVideo ? 4 * 1024 * 1024 : 8 * 1024 * 1024;  // videos ≤ 4 MB (Vercel body limit); images ≤ 8 MB
+  // Vercel Hobby caps request bodies at 4.5 MB and base64 adds ~33% overhead.
+  // 3 MB raw → ~4 MB JSON payload — safely under the limit for both photos and videos.
+  const MAX_BYTES = 3 * 1024 * 1024;
   if (buffer.length > MAX_BYTES) {
     return res.status(413).json({
       error: isVideo
-        ? "Video is too large (max 4 MB on this plan). Trim or compress it, or host it on YouTube/Vimeo and paste the embed URL later."
-        : "Image is too large (max 8 MB).",
+        ? "Video is too large (max 3 MB). Compress it, or host on YouTube/Vimeo and paste the embed URL."
+        : "Image is too large (max 3 MB). Try a compressed / smaller version.",
     });
   }
 
@@ -309,18 +311,39 @@ async function handleUploadImage(req, res) {
     return res.status(200).json({ url: blob.url, size: buffer.length, contentType: mime, storage: "blob" });
   }
 
-  // Videos are too big for base64 inline fallback — reject cleanly.
+  // Videos: keep rejecting cleanly when Blob's off — Postgres BYTEA would
+  // work in theory but delivering multi-MB video from a Node function on
+  // every visitor page load is a bad experience.
   if (isVideo) {
     return res.status(501).json({
       error: "Video uploads need Vercel Blob storage. In your Vercel dashboard → Storage → connect a Blob store to this project, then redeploy.",
     });
   }
 
-  const dataUrl = `data:${mime};base64,${data}`;
-  return res.status(200).json({
-    url: dataUrl, size: buffer.length, contentType: mime, storage: "inline",
-    warning: "Vercel Blob isn't configured, so this image is embedded inline. Enable Blob later for faster performance.",
-  });
+  // Fallback: store the image binary in Postgres. Patches then reference
+  // /api/asset/{id} (small URL) instead of a huge base64 data URL, so
+  // saves don't run into Vercel's 4.5 MB request body cap.
+  try {
+    if (!sql) throw new Error("Database not configured");
+    await ensureSchema();
+    const rows = await sql`
+      INSERT INTO assets (mime, filename, data, size)
+      VALUES (${mime}, ${filename || null}, ${buffer}, ${buffer.length})
+      RETURNING id
+    `;
+    const id = rows[0].id;
+    return res.status(200).json({
+      url: `/api/asset/${id}`,
+      size: buffer.length,
+      contentType: mime,
+      storage: "postgres",
+    });
+  } catch (err) {
+    console.error("asset insert failed:", err);
+    return res.status(500).json({
+      error: "Couldn't store the image. Please try a smaller file, or set up Vercel Blob for larger uploads.",
+    });
+  }
 }
 
 // ---- Insights (aggregations from page_views) ----
