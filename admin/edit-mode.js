@@ -517,32 +517,13 @@
     input.click();
   }
 
-  // Upload strategy:
-  // - Files <= 3 MB: base64 through /api/admin/upload-image (simple, one hop).
-  // - Files >  3 MB: client-side direct upload to Vercel Blob via
-  //   /api/admin/upload-token. This bypasses the 4.5 MB serverless
-  //   body limit and supports up to 500 MB.
-  var _blobClientPromise = null;
-  function loadBlobClient() {
-    if (!_blobClientPromise) {
-      _blobClientPromise = import("https://esm.sh/@vercel/blob@0.27.3/client")
-        .catch(function () { return import("https://cdn.jsdelivr.net/npm/@vercel/blob@0.27.3/dist/client/index.mjs"); });
-    }
-    return _blobClientPromise;
-  }
-
-  async function uploadMediaLarge(file) {
-    var mod = await loadBlobClient();
-    var blob = await mod.upload(file.name, file, {
-      access: "public",
-      handleUploadUrl: "/api/admin/upload-token",
-      contentType: file.type,
-    });
-    return blob.url;
-  }
-
-  function uploadMediaSmall(file) {
+  function uploadMedia(file) {
     return new Promise(function (resolve, reject) {
+      var isVideo = /^video\//.test(file.type || "");
+      var maxMb = isVideo ? 4 : 8;
+      if (file.size > maxMb * 1024 * 1024) {
+        return reject(new Error("File too large (max " + maxMb + " MB for " + (isVideo ? "videos" : "images") + ")"));
+      }
       var reader = new FileReader();
       reader.onload = async function (e) {
         var b64 = String(e.target.result || "").split(",")[1];
@@ -561,26 +542,6 @@
       reader.onerror = function () { reject(new Error("Could not read file")); };
       reader.readAsDataURL(file);
     });
-  }
-
-  function uploadMedia(file) {
-    // Practical ceilings — well above what a therapist would ever want to upload.
-    var isVideo = /^video\//.test(file.type || "");
-    var maxMb = isVideo ? 500 : 50;
-    if (file.size > maxMb * 1024 * 1024) {
-      return Promise.reject(new Error("File too large (max " + maxMb + " MB)"));
-    }
-    // Anything above 3 MB goes via client-direct upload
-    if (file.size > 3 * 1024 * 1024) {
-      return uploadMediaLarge(file).catch(function (err) {
-        // If client-direct fails (e.g. Blob not configured), try the smaller
-        // base64 path — will reject cleanly with the "Blob not configured"
-        // message from the server for files that are also too big for base64.
-        if (file.size <= 4 * 1024 * 1024) return uploadMediaSmall(file);
-        throw err;
-      });
-    }
-    return uploadMediaSmall(file);
   }
 
   //---------- Load existing patches so the editor sees the current state ----------

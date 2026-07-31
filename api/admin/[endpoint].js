@@ -10,7 +10,6 @@ import {
   requireAdmin,
 } from "../../lib/auth.js";
 import { put } from "@vercel/blob";
-import { handleUpload } from "@vercel/blob/client";
 
 // Needed by the upload-image handler; applies to all endpoints handled
 // here — every other endpoint's body is small JSON so a larger limit
@@ -451,55 +450,6 @@ async function handleInsights(req, res) {
   });
 }
 
-// ---- Client-side direct upload token issuer ----
-// The browser uploads files directly to Vercel Blob using a signed URL.
-// This bypasses Vercel's 4.5 MB serverless request body limit and lets
-// us support big images (50 MB+) and videos (up to ~500 MB).
-async function handleUploadToken(req, res) {
-  // NOTE: no top-level requireAdmin — this endpoint gets called twice per
-  // upload: once by the browser (client-authed, has admin cookie) and once
-  // by Vercel Blob as a completion webhook (server → server, no cookie).
-  // Auth for the client request happens inside onBeforeGenerateToken.
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return res.status(501).json({
-      error: "Vercel Blob isn't configured. Enable Blob storage in the Vercel dashboard for this project, then redeploy.",
-    });
-  }
-  try {
-    const body = parseBody(req);
-    const jsonResponse = await handleUpload({
-      body,
-      request: req,
-      onBeforeGenerateToken: async () => {
-        // Only real admin sessions can issue upload tokens.
-        const token = readCookie(req);
-        const authed = token && await verifyAdminToken(token);
-        if (!authed) throw new Error("Unauthorized");
-        return {
-          allowedContentTypes: [
-            "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml",
-            "video/mp4", "video/webm", "video/quicktime", "video/ogg",
-          ],
-          // Ceilings — well above the practical upload sizes for a therapy site
-          maximumSizeInBytes: 500 * 1024 * 1024, // 500 MB
-          addRandomSuffix: true,
-          tokenPayload: JSON.stringify({}),
-        };
-      },
-      // Nothing to do server-side after upload — the client gets the URL
-      // back and posts it as a patch via the normal edits flow.
-      onUploadCompleted: async () => {},
-    });
-    return res.status(200).json(jsonResponse);
-  } catch (err) {
-    console.error("upload-token error:", err);
-    return res.status(400).json({
-      error: `Upload token failed: ${err && err.message ? err.message : String(err)}`,
-    });
-  }
-}
-
 // ---- Seed insights (one-time backfill matching Vercel's historical numbers) ----
 // Generates realistic synthetic sessions across the last 30 days so the
 // Insights dashboard has meaningful data immediately. Idempotent — refuses
@@ -753,7 +703,6 @@ const ROUTES = {
   "insights":       handleInsights,
   "seed-insights":  handleSeedInsights,
   "edits":          handleEdits,
-  "upload-token":   handleUploadToken,
 };
 
 export default async function handler(req, res) {
