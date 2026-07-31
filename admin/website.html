@@ -21,7 +21,7 @@
         Admin
       </a>
       <h2 class="we-sidebar__title">Website</h2>
-      <p class="we-sidebar__sub">Click text, images, videos, or section backgrounds on the right to edit them. Save keeps a draft; Publish makes it live.</p>
+      <p class="we-sidebar__sub">Click text, images, videos, or section backgrounds on the right to edit them. Save &amp; Publish sends your changes live on the website.</p>
 
       <div class="we-page-picker">
         <div class="we-page-picker__label">Pages</div>
@@ -34,8 +34,7 @@
           <li><strong>Text</strong>: click any heading or paragraph → type → click outside.</li>
           <li><strong>Images / videos</strong>: click → pick a new file. Videos max 4 MB.</li>
           <li><strong>Backgrounds</strong>: hover a section → click <em>Change background</em>.</li>
-          <li><strong>Save</strong>: stores drafts. Not visible on the live site.</li>
-          <li><strong>Publish</strong>: marks everything on this page as live. Visitors see it immediately.</li>
+          <li><strong>Save &amp; Publish</strong>: writes your changes and puts them live on the website. Visitors see it on their next page load.</li>
         </ul>
         <p class="we-help__note">Section templates (add/remove full sections) coming next.</p>
       </div>
@@ -56,8 +55,7 @@
           </button>
           <a id="viewLive" class="btn btn--ghost btn--sm hidden" target="_blank" rel="noopener">View live ↗</a>
           <button type="button" class="btn btn--ghost btn--sm" id="discardBtn" disabled>Discard</button>
-          <button type="button" class="btn btn--ghost btn--sm" id="saveDraftBtn" disabled>Save draft</button>
-          <button type="button" class="btn btn--sm" id="publishBtn" disabled>Publish</button>
+          <button type="button" class="btn btn--sm" id="publishBtn" disabled>Save &amp; Publish</button>
         </div>
       </div>
       <div class="we-canvas__frame">
@@ -130,8 +128,7 @@
     }
 
     function updateButtons() {
-      $("saveDraftBtn").disabled = state.dirty === 0;
-      $("publishBtn").disabled = state.dirty === 0 && state.activePath === null;
+      $("publishBtn").disabled = state.dirty === 0;
       $("discardBtn").disabled = state.dirty === 0;
       $("undoBtn").disabled = state.history === 0;
       if (state.dirty > 0) {
@@ -156,10 +153,6 @@
     }
 
     function bindTopBarActions() {
-      $("saveDraftBtn").addEventListener("click", () => {
-        $("saveDraftBtn").disabled = true;
-        sendToFrame({ type: "sm-edit-save" });
-      });
       $("publishBtn").addEventListener("click", () => {
         $("publishBtn").disabled = true;
         sendToFrame({ type: "sm-edit-publish" });
@@ -201,13 +194,8 @@
           state.dirty = 0;
           state.history = 0;
           updateButtons();
-          if (d.published) {
-            flashStatus("Published — live on the site", "good");
-          } else {
-            flashStatus("Draft saved", "info");
-          }
+          flashStatus("Saved — live on the site", "good");
         } else if (d.type === "sm-edit-error") {
-          $("saveDraftBtn").disabled = state.dirty === 0;
           $("publishBtn").disabled = state.dirty === 0;
           flashStatus("Save failed: " + d.error, "bad");
         }

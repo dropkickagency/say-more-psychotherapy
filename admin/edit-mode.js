@@ -298,16 +298,13 @@
       console.log("[sm-edit] message received:", msg.type);
     }
 
-    if (msg.type === "sm-edit-save") {
+    // Save and Publish now do the same thing — save always publishes so
+    // changes go live immediately. The draft state was confusing; users
+    // hit Save expecting to see it on the site.
+    if (msg.type === "sm-edit-save" || msg.type === "sm-edit-publish") {
       try {
-        var r = await saveAll(false);
-        post({ type: "sm-edit-saved", saved: r.saved || 0, published: false });
-      } catch (err) { post({ type: "sm-edit-error", error: err.message }); }
-    }
-    if (msg.type === "sm-edit-publish") {
-      try {
-        var r2 = await saveAll(true);
-        post({ type: "sm-edit-saved", saved: r2.saved || 0, promoted: r2.promoted || 0, published: true });
+        var r = await saveAll(true);
+        post({ type: "sm-edit-saved", saved: r.saved || 0, promoted: r.promoted || 0, published: true });
       } catch (err) { post({ type: "sm-edit-error", error: err.message }); }
     }
     if (msg.type === "sm-edit-discard") {
