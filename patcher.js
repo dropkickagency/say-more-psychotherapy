@@ -45,12 +45,25 @@
         .replace(/\s+contenteditable="[^"]*"/g, "");
     }
 
+    // Some layouts (statement, benefits, reels) hide .img-box img until the
+    // container is marked .has-real-image. Newly uploaded images would load
+    // fine but render invisible without this.
+    function markContainerAsRealImage(el) {
+      try {
+        var box = el && el.closest && el.closest(".img-box, .therapist__portrait, .reel");
+        if (box) box.classList.add("has-real-image");
+      } catch (e) {}
+    }
+
     function applyOne(el, type, content) {
       // Never overwrite with an empty/null value — that would just blank the image/video.
       if (content == null || content === "") return;
       try {
         if (type === "image") {
-          if (el.tagName === "IMG") el.setAttribute("src", content);
+          if (el.tagName === "IMG") {
+            el.setAttribute("src", content);
+            markContainerAsRealImage(el);
+          }
         } else if (type === "video") {
           if (el.tagName === "VIDEO") {
             el.querySelectorAll("source").forEach(function (s) { s.remove(); });

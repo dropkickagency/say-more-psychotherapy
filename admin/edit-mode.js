@@ -512,11 +512,24 @@
     });
   }
 
+  // Some layouts (about page statement blocks, benefits, reels) render a
+  // decorative hatch/gradient placeholder in .img-box until the container
+  // opts in with .has-real-image. When the editor swaps in a new src, the
+  // <img> loads fine but the CSS keeps it visibility:hidden — visitors see
+  // a blank tile. Mark the wrapper so the real image shows.
+  function markContainerAsRealImage(el) {
+    try {
+      var box = el.closest && el.closest(".img-box, .therapist__portrait, .reel");
+      if (box) box.classList.add("has-real-image");
+    } catch (e) {}
+  }
+
   function replaceMedia(el, file, attr) {
     var wasSrc = el.getAttribute(attr);
     el.classList.add("sm-uploading");
     uploadMedia(file).then(function (url) {
       el.setAttribute(attr, url);
+      markContainerAsRealImage(el);
       el.classList.remove("sm-uploading");
       var path = elementPath(el);
       var existing = patches.get(path);
@@ -532,6 +545,7 @@
             var tPath = elementPath(t);
             var tOrigAttr = t.getAttribute("src");
             t.setAttribute("src", url);
+            markContainerAsRealImage(t);
             var tExisting = patches.get(tPath);
             var tOrigSnap = tExisting ? tExisting.original : tOrigAttr;
             patches.set(tPath, { element_type: "image", new_content: url, original: tOrigSnap });
@@ -649,7 +663,10 @@
           if (!el) { console.warn("[sm-edit] patch target not found:", p.element_path); return; }
           if (p.new_content == null || p.new_content === "") { console.warn("[sm-edit] patch has empty new_content, skipping", p.element_path); return; }
           if (p.element_type === "image") {
-            if (el.tagName === "IMG") el.setAttribute("src", p.new_content);
+            if (el.tagName === "IMG") {
+              el.setAttribute("src", p.new_content);
+              markContainerAsRealImage(el);
+            }
           } else if (p.element_type === "video") {
             if (el.tagName === "VIDEO") {
               el.querySelectorAll("source").forEach(function (s) { s.remove(); });
