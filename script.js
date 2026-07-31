@@ -77,10 +77,18 @@ var __SM_EDIT_MODE__ = false;
     });
   }
 
+  // Reveal the page (paired with the inline hide-until-ready snippet in
+  // <head>). Called after patches apply, or on fetch error, or via the
+  // <head> failsafe timeout — whichever fires first.
+  function reveal() {
+    try { document.documentElement.classList.remove('sm-loading'); } catch (e) {}
+  }
+
   fetch('/api/edits?path=' + encodeURIComponent(window.location.pathname))
     .then(function (r) { return r.json(); })
     .then(function (d) { applyPatches(d && d.patches); })
-    .catch(function () { /* silent — page still works uneditied */ });
+    .catch(function () { /* silent — page still works uneditied */ })
+    .then(reveal);
 })();
 
 // ---- Analytics beacon (fire-and-forget, sends one row per page view) ----
