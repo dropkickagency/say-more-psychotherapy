@@ -58,63 +58,88 @@
   function pushHistory(entry) {
     history.push(entry);
     if (history.length > 200) history.shift();  // cap memory
+    console.log("[sm-edit] history +1 (" + entry.element_type + " @ " + entry.element_path + ") — total " + history.length);
   }
 
   // Apply a state to an element based on its type — used by both the
-  // initial edits and by undo.
+  // initial edits and by undo. Handles null/empty defensively so undo
+  // never leaves an img/video with src="null".
   function applyState(el, type, value) {
     try {
       if (type === "text") {
-        el.innerHTML = value;
+        el.innerHTML = value == null ? "" : value;
       } else if (type === "image") {
-        el.setAttribute("src", value);
+        if (value == null || value === "") el.removeAttribute("src");
+        else el.setAttribute("src", value);
       } else if (type === "video") {
         el.querySelectorAll("source").forEach(function (s) { s.remove(); });
-        el.setAttribute("src", value);
+        if (value == null || value === "") el.removeAttribute("src");
+        else el.setAttribute("src", value);
         try { el.load(); } catch (e) {}
       } else if (type === "bg-image") {
         // bg entries store the whole CSS backgroundImage value (e.g. url("...") or "none")
-        el.style.backgroundImage = value === "none" ? "" : value;
+        el.style.backgroundImage = (value == null || value === "none" || value === "") ? "" : value;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("[sm-edit] applyState failed", { type: type, value: value, err: e && e.message });
+    }
   }
 
-  // Undo the most recent edit. If the reverted state matches the ORIGINAL
-  // (pre-any-edit) content, remove the patch entirely — otherwise write the
-  // reverted state as the current patch.
+  // Undo the most recent edit.
   function undoOnce() {
-    var entry = history.pop();
-    if (!entry) return false;
-    var el = document.querySelector(entry.element_path);
-    if (!el) { markDirty(); return true; }
-
-    applyState(el, entry.element_type, entry.prev);
-
-    // Figure out what the patches map should look like now.
-    // If any earlier history entry for the same element_path exists, its
-    // `prev` was the state before that earlier edit. The `next` after
-    // that earlier edit is the state we should keep as the current patch.
-    // Simpler: walk backwards from the (now-popped) history — find the
-    // last remaining next for this element_path; that becomes the patch.
-    var still = null;
-    for (var i = history.length - 1; i >= 0; i--) {
-      if (history[i].element_path === entry.element_path) { still = history[i]; break; }
+    if (history.length === 0) {
+      console.log("[sm-edit] undoOnce called but history is empty");
+      return false;
     }
-    if (still) {
-      // A prior edit still stands — update the patch to reflect it
-      patches.set(entry.element_path, {
-        element_type: still.element_type,
-        new_content: still.next,
-        original: still.origSnapshot != null ? still.origSnapshot : (patches.get(entry.element_path) && patches.get(entry.element_path).original),
+    var entry;
+    var el;
+    try {
+      entry = history.pop();
+      console.log("[sm-edit] undo popped:", {
+        path: entry.element_path,
+        type: entry.element_type,
+        prevSample: String(entry.prev).slice(0, 60),
       });
-      // And re-apply the still-standing state (already applied by the pop above if entry.prev === still.next)
-      if (still.next !== entry.prev) applyState(el, still.element_type, still.next);
-    } else {
-      // No prior edits — element is back to its original state
-      patches.delete(entry.element_path);
+      el = document.querySelector(entry.element_path);
+      if (!el) {
+        console.warn("[sm-edit] undo: element not found for path", entry.element_path);
+        // History is out of sync with DOM — still notify parent so the button
+        // state stays accurate.
+        markDirty();
+        return true;
+      }
+
+      applyState(el, entry.element_type, entry.prev);
+
+      // Find the most recent remaining history entry for this same element.
+      // If one exists, that's the state the patch should now hold.
+      var still = null;
+      for (var i = history.length - 1; i >= 0; i--) {
+        if (history[i].element_path === entry.element_path) { still = history[i]; break; }
+      }
+      if (still) {
+        patches.set(entry.element_path, {
+          element_type: still.element_type,
+          new_content: still.next,
+          original: still.origSnapshot != null ? still.origSnapshot : entry.origSnapshot,
+        });
+        // If prev doesn't equal still.next, we need to re-apply still.next
+        if (String(still.next) !== String(entry.prev)) {
+          applyState(el, still.element_type, still.next);
+        }
+      } else {
+        // No prior edits — element is back to its original state; remove patch
+        patches.delete(entry.element_path);
+      }
+      markDirty();
+      return true;
+    } catch (err) {
+      console.error("[sm-edit] undoOnce threw", err);
+      // Put the entry back so a retry can succeed
+      if (entry) history.push(entry);
+      markDirty();
+      return false;
     }
-    markDirty();
-    return true;
   }
 
   //---------- Small in-iframe status pill (no action buttons anymore) ----------
@@ -172,6 +197,9 @@
   window.addEventListener("message", async function (e) {
     var msg = e.data;
     if (!msg || typeof msg !== "object") return;
+    if (msg.type && msg.type.indexOf("sm-edit-") === 0) {
+      console.log("[sm-edit] message received:", msg.type);
+    }
 
     if (msg.type === "sm-edit-save") {
       try {
@@ -190,6 +218,22 @@
       window.location.reload();
     }
     if (msg.type === "sm-edit-undo") {
+      console.log("[sm-edit] received sm-edit-undo (history=" + history.length + ", patches=" + patches.size + ")");
+      undoOnce();
+    }
+  });
+
+  // Ctrl/Cmd + Z inside the iframe → undo. Mirrors the parent handler so it
+  // works whether the user's focus is in the iframe or the admin toolbar.
+  window.addEventListener("keydown", function (e) {
+    var mod = e.metaKey || e.ctrlKey;
+    if (mod && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
+      // Don't hijack Ctrl+Z inside a contentEditable — let the browser do its
+      // own text-level undo first. If nothing to undo there, use ours.
+      var ae = document.activeElement;
+      if (ae && (ae.getAttribute("contenteditable") === "true" || ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
+      if (history.length === 0) return;
+      e.preventDefault();
       undoOnce();
     }
   });
