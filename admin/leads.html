@@ -50,6 +50,29 @@
     }
     .filter-btn:hover { background: var(--admin-brand-light); color: var(--admin-brand-dark); }
     .filter-btn.is-active { background: var(--admin-brand); color: #FFFFFF; border-color: var(--admin-brand); }
+
+    /* Range dropdown in header ------------------------------------------ */
+    .admin__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .range-picker { display: flex; align-items: center; gap: 8px; }
+    .range-picker__label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--admin-muted); font-weight: 600;
+    }
+    .range-picker select {
+      appearance: none; -webkit-appearance: none;
+      font-family: inherit; font-size: 13px; font-weight: 500;
+      color: var(--admin-text);
+      background: #FFFFFF;
+      border: 1px solid var(--admin-border-strong);
+      border-radius: 8px;
+      padding: 7px 32px 7px 12px;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237A6A5C' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+    .range-picker select:hover { border-color: var(--admin-brand); }
+    .range-picker select:focus { outline: 2px solid var(--admin-brand); outline-offset: 1px; }
   </style>
 </head>
 <body>
@@ -93,6 +116,18 @@
         <div>
           <h1 class="admin__title">Leads <small>Booking-form submissions & inbound inquiries.</small></h1>
         </div>
+        <div class="range-picker">
+          <span class="range-picker__label">Range</span>
+          <select id="rangeSelect" aria-label="Time range">
+            <option value="1">Last 24 hours</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 3 months</option>
+            <option value="180">Last 6 months</option>
+            <option value="365">Last year</option>
+            <option value="0" selected>All time</option>
+          </select>
+        </div>
       </div>
 
       <div id="alert"></div>
@@ -116,16 +151,6 @@
       </div>
 
       <div class="filters" id="filters">
-        <div class="filter-group" id="rangeFilters">
-          <span class="filter-group__label">Range</span>
-          <button class="filter-btn" data-range="1">24 hrs</button>
-          <button class="filter-btn" data-range="7">7 days</button>
-          <button class="filter-btn" data-range="30">30 days</button>
-          <button class="filter-btn" data-range="90">3 months</button>
-          <button class="filter-btn" data-range="180">6 months</button>
-          <button class="filter-btn" data-range="365">1 year</button>
-          <button class="filter-btn is-active" data-range="0">All</button>
-        </div>
         <div class="filter-group">
           <span class="filter-group__label">Status</span>
           <button class="filter-btn is-active" data-status="">All</button>
@@ -388,22 +413,18 @@
           "<tr><td colspan='8'><div class='empty'><h3>Unable to load leads</h3><p>Check that the database is configured.</p></div></td></tr>";
       }
 
-      // Range filter buttons
-      document.querySelectorAll("#rangeFilters .filter-btn").forEach(b => {
-        b.addEventListener("click", () => {
-          document.querySelectorAll("#rangeFilters .filter-btn").forEach(x => x.classList.remove("is-active"));
-          b.classList.add("is-active");
-          state.rangeDays = Number(b.dataset.range) || 0;
-          updateStats();
-          render();
-        });
+      // Range dropdown (top-right of header)
+      const rangeSelect = document.getElementById("rangeSelect");
+      rangeSelect.addEventListener("change", () => {
+        state.rangeDays = Number(rangeSelect.value) || 0;
+        updateStats();
+        render();
       });
 
-      // Status filter buttons — target the Status group specifically
-      // (was ':first-child', which broke once Range became the first group)
-      document.querySelectorAll("#filters .filter-group:not(#rangeFilters):not(#sourceFilters) .filter-btn").forEach(b => {
+      // Status filter buttons
+      document.querySelectorAll("#filters .filter-group:first-child .filter-btn").forEach(b => {
         b.addEventListener("click", () => {
-          document.querySelectorAll("#filters .filter-group:not(#rangeFilters):not(#sourceFilters) .filter-btn").forEach(x => x.classList.remove("is-active"));
+          document.querySelectorAll("#filters .filter-group:first-child .filter-btn").forEach(x => x.classList.remove("is-active"));
           b.classList.add("is-active");
           state.filter = b.dataset.status;
           render();
