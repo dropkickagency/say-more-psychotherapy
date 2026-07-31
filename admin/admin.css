@@ -586,15 +586,7 @@ body.website-editor-body {
   color: var(--admin-muted);
   padding-left: 8px;
 }
-.we-page-btn__badge {
-  min-width: 20px; height: 20px; padding: 0 6px;
-  border-radius: 999px;
-  background: var(--admin-brand);
-  color: #FFFFFF;
-  font-size: 11px;
-  font-weight: 700;
-  display: inline-flex; align-items: center; justify-content: center;
-}
+/* (page badge removed — no longer shown per user request) */
 
 .we-help {
   margin-top: auto;
@@ -649,6 +641,18 @@ body.website-editor-body {
   border-radius: 999px;
   font-weight: 600;
 }
+.we-save-status {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  background: #F0EDE9;
+  color: #5C5852;
+  transition: opacity 200ms;
+}
+.we-save-status.is-good { background: #DCFCE7; color: #166534; }
+.we-save-status.is-bad  { background: #FEE2E2; color: #991B1B; }
+.we-save-status.is-info { background: #E7EFFE; color: #1a3a80; }
 .we-canvas__frame {
   flex: 1;
   background: #F3EEE2;

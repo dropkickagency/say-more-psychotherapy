@@ -37,6 +37,15 @@ var __SM_EDIT_MODE__ = false;
         if (!el) return;
         if (p.element_type === 'image') {
           if (el.tagName === 'IMG') el.setAttribute('src', p.new_content);
+        } else if (p.element_type === 'video') {
+          if (el.tagName === 'VIDEO') {
+            // Remove <source> children so the new src wins
+            el.querySelectorAll('source').forEach(function (s) { s.remove(); });
+            el.setAttribute('src', p.new_content);
+            try { el.load(); } catch (e) {}
+          }
+        } else if (p.element_type === 'bg-image') {
+          el.style.backgroundImage = 'url("' + p.new_content + '")';
         } else if (p.element_type === 'href') {
           el.setAttribute('href', p.new_content);
         } else {

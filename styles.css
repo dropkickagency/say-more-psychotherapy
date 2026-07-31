@@ -3021,13 +3021,13 @@ a.tag:hover {
 .sm-edit-toolbar__dot {
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: #F97316;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
+  background: #22C55E;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
   animation: sm-pulse 1.6s infinite;
 }
 @keyframes sm-pulse {
-  0%,100% { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25); }
-  50%     { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.1); }
+  0%,100% { box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); }
+  50%     { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.1); }
 }
 .sm-edit-toolbar__hint {
   flex: 1;
@@ -3035,29 +3035,68 @@ a.tag:hover {
   font-size: 13px;
   color: rgba(247, 244, 238, 0.75);
 }
-.sm-edit-toolbar__actions {
-  display: flex; gap: 10px;
+.sm-edit-toolbar__spacer { width: 128px; }  /* mirrors the pill on the left so hint stays centered */
+
+/* ---- Video click-to-replace ---- */
+.sm-edit-mode video.sm-editable-video {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 120ms;
 }
-.sm-edit-toolbar__actions button {
-  background: rgba(255, 255, 255, 0.1);
-  color: #F7F4EE;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 7px 14px;
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 120ms, transform 120ms;
-}
-.sm-edit-toolbar__actions button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.18); }
-.sm-edit-toolbar__actions button:disabled { opacity: 0.4; cursor: default; }
-.sm-edit-toolbar__actions button.is-primary {
-  background: #EA580C;
-  border-color: #EA580C;
+.sm-edit-mode video.sm-editable-video:hover { outline-color: #9B7045; }
+.sm-video-edit-btn {
+  position: absolute;
+  top: 12px; right: 12px;
+  z-index: 5;
+  background: rgba(20, 17, 15, 0.9);
   color: #FFFFFF;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms, background 120ms;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
-.sm-edit-toolbar__actions button.is-primary:hover { background: #C2410C; border-color: #C2410C; }
+.sm-edit-mode video.sm-editable-video:hover ~ .sm-video-edit-btn,
+.sm-edit-mode .sm-video-edit-btn:hover { opacity: 1; }
+.sm-edit-mode .sm-video-edit-btn { opacity: 1; } /* always visible in edit mode */
+.sm-edit-mode video.sm-editable-video.sm-uploading { opacity: 0.5; }
+
+/* ---- Section background image edit chip ---- */
+.sm-edit-mode .sm-editable-bg { outline: 1px dashed transparent; outline-offset: -4px; transition: outline-color 120ms; }
+.sm-edit-mode .sm-editable-bg:hover { outline-color: rgba(155, 112, 69, 0.45); }
+.sm-bg-edit-chip {
+  position: absolute;
+  top: 14px; left: 14px;
+  z-index: 5;
+  background: rgba(20, 17, 15, 0.9);
+  color: #FFFFFF;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms, background 120ms;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.sm-edit-mode .sm-editable-bg:hover .sm-bg-edit-chip,
+.sm-edit-mode .sm-bg-edit-chip:hover { opacity: 1; }
+.sm-edit-mode .sm-editable-bg.sm-uploading { opacity: 0.6; }
 
 /* ---------- Soft pink page background helper ---------- */
 .bg-pink { background: linear-gradient(180deg, #FBEEEA 0%, #F7DFD7 100%); }

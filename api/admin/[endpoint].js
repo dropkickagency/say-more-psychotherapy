@@ -255,12 +255,16 @@ async function handlePosts(req, res) {
   return res.status(405).json({ error: "Method not allowed." });
 }
 
-// ---- Image upload (Vercel Blob with base64 inline fallback) ----
+// ---- Media upload — images AND videos (Vercel Blob with base64 fallback) ----
 const ALLOWED_MIME = new Set([
+  // images
   "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml",
+  // videos
+  "video/mp4", "video/webm", "video/quicktime", "video/ogg",
 ]);
 const MIME_TO_EXT = {
   "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/svg+xml": "svg",
+  "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "video/ogg": "ogv",
 };
 function safeExt(filename, mime) {
   const rawExt = String(filename || "").split(".").pop().toLowerCase();
@@ -269,7 +273,8 @@ function safeExt(filename, mime) {
 }
 function makeKey(filename, mime) {
   const ext = safeExt(filename, mime);
-  return `blog/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const folder = String(mime || "").startsWith("video/") ? "media" : "blog";
+  return `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 }
 
 async function handleUploadImage(req, res) {
@@ -277,13 +282,22 @@ async function handleUploadImage(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { filename, mime, data } = parseBody(req);
-  if (!data || typeof data !== "string") return res.status(400).json({ error: "Missing image data." });
-  if (!mime || !ALLOWED_MIME.has(String(mime).toLowerCase())) {
-    return res.status(400).json({ error: "Unsupported image type. Please upload a JPG, PNG, WebP, GIF, or SVG." });
+  if (!data || typeof data !== "string") return res.status(400).json({ error: "Missing file data." });
+  const mimeLower = String(mime || "").toLowerCase();
+  if (!mime || !ALLOWED_MIME.has(mimeLower)) {
+    return res.status(400).json({ error: "Unsupported file type. Images: JPG/PNG/WebP/GIF/SVG. Videos: MP4/WebM/MOV/OGG." });
   }
+  const isVideo = mimeLower.startsWith("video/");
   const buffer = Buffer.from(data, "base64");
-  if (buffer.length === 0) return res.status(400).json({ error: "Image data was empty." });
-  if (buffer.length > 8 * 1024 * 1024) return res.status(413).json({ error: "Image is too large (max 8 MB)." });
+  if (buffer.length === 0) return res.status(400).json({ error: "File data was empty." });
+  const MAX_BYTES = isVideo ? 4 * 1024 * 1024 : 8 * 1024 * 1024;  // videos ≤ 4 MB (Vercel body limit); images ≤ 8 MB
+  if (buffer.length > MAX_BYTES) {
+    return res.status(413).json({
+      error: isVideo
+        ? "Video is too large (max 4 MB on this plan). Trim or compress it, or host it on YouTube/Vimeo and paste the embed URL later."
+        : "Image is too large (max 8 MB).",
+    });
+  }
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const key = makeKey(filename, mime);
@@ -295,10 +309,17 @@ async function handleUploadImage(req, res) {
     return res.status(200).json({ url: blob.url, size: buffer.length, contentType: mime, storage: "blob" });
   }
 
+  // Videos are too big for base64 inline fallback — reject cleanly.
+  if (isVideo) {
+    return res.status(501).json({
+      error: "Video uploads need Vercel Blob storage. In your Vercel dashboard → Storage → connect a Blob store to this project, then redeploy.",
+    });
+  }
+
   const dataUrl = `data:${mime};base64,${data}`;
   return res.status(200).json({
     url: dataUrl, size: buffer.length, contentType: mime, storage: "inline",
-    warning: "Vercel Blob isn't configured, so this image is embedded inline in the post. Enable Blob later for faster performance.",
+    warning: "Vercel Blob isn't configured, so this image is embedded inline. Enable Blob later for faster performance.",
   });
 }
 
@@ -598,31 +619,57 @@ async function handleEdits(req, res) {
     const path = req.query && req.query.path;
     const rows = path
       ? await sql`SELECT * FROM content_patches WHERE page_path = ${path} ORDER BY updated_at DESC`
-      : await sql`SELECT page_path, COUNT(*)::int AS n, MAX(updated_at) AS last_updated FROM content_patches GROUP BY page_path ORDER BY last_updated DESC`;
+      : await sql`SELECT page_path,
+                          COUNT(*)::int AS n,
+                          COUNT(*) FILTER (WHERE published = FALSE)::int AS draft_n,
+                          MAX(updated_at) AS last_updated
+                    FROM content_patches
+                    GROUP BY page_path
+                    ORDER BY last_updated DESC`;
     return res.status(200).json({ patches: rows });
   }
 
   if (req.method === "POST") {
     const body = parseBody(req);
-    const patches = Array.isArray(body.patches) ? body.patches : [body];
+    const patches = Array.isArray(body.patches) ? body.patches : (body.patches === undefined ? [body] : []);
     const pagePath = String(body.page_path || (patches[0] && patches[0].page_path) || "").trim();
     if (!pagePath) return res.status(400).json({ error: "page_path required" });
 
+    const publish = body.publish === true;
+    const publishAll = body.publish_all === true;
+
     let saved = 0;
     for (const p of patches) {
-      if (!p.element_path || !p.new_content) continue;
+      if (!p.element_path || p.new_content == null) continue;
       await sql`
-        INSERT INTO content_patches (page_path, element_path, element_type, new_content, original, updated_at)
-        VALUES (${pagePath}, ${p.element_path}, ${p.element_type || "text"}, ${p.new_content}, ${p.original || null}, NOW())
+        INSERT INTO content_patches (page_path, element_path, element_type, new_content, original, published, updated_at)
+        VALUES (
+          ${pagePath},
+          ${p.element_path},
+          ${p.element_type || "text"},
+          ${p.new_content},
+          ${p.original || null},
+          ${publish},
+          NOW()
+        )
         ON CONFLICT (page_path, element_path) DO UPDATE SET
           element_type = EXCLUDED.element_type,
           new_content  = EXCLUDED.new_content,
           original     = COALESCE(EXCLUDED.original, content_patches.original),
+          published    = CASE WHEN EXCLUDED.published THEN TRUE ELSE content_patches.published END,
           updated_at   = NOW()
       `;
       saved++;
     }
-    return res.status(200).json({ ok: true, saved });
+
+    // Publish everything currently in draft on this page (from earlier saves)
+    let promoted = 0;
+    if (publishAll) {
+      const r = await sql`UPDATE content_patches SET published = TRUE, updated_at = NOW() WHERE page_path = ${pagePath} AND published = FALSE`;
+      promoted = (r && r.count) || 0;
+    }
+
+    return res.status(200).json({ ok: true, saved, promoted, published: publish || publishAll });
   }
 
   if (req.method === "DELETE") {

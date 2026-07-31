@@ -15,12 +15,11 @@ export default async function handler(req, res) {
     const rows = await sql`
       SELECT element_path, element_type, new_content, original
       FROM content_patches
-      WHERE page_path = ${path}
+      WHERE page_path = ${path} AND published = TRUE
     `;
 
-    // Cache briefly — trades a few seconds of staleness for way less DB load.
-    // Admins see instant updates because their view uses the admin API directly.
-    res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
+    // No edge cache — Publish should show up on the site immediately.
+    res.setHeader("Cache-Control", "no-store, must-revalidate");
     return res.status(200).json({ patches: rows });
   } catch (err) {
     console.warn("edits list error:", err && err.message);

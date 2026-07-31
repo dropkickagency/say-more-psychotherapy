@@ -14,14 +14,14 @@
 <body class="editor-body-bg website-editor-body">
   <div class="website-editor">
 
-    <!-- LEFT: page picker + info -->
+    <!-- LEFT: page picker -->
     <aside class="we-sidebar">
       <a href="/admin/index.html" class="we-back">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
         Admin
       </a>
       <h2 class="we-sidebar__title">Website</h2>
-      <p class="we-sidebar__sub">Click any text or image on the right to edit it. Save changes to update the live website.</p>
+      <p class="we-sidebar__sub">Click text, images, videos, or section backgrounds on the right to edit them. Save keeps a draft; Publish makes it live.</p>
 
       <div class="we-page-picker">
         <div class="we-page-picker__label">Pages</div>
@@ -31,24 +31,29 @@
       <div class="we-help">
         <h3>How it works</h3>
         <ul>
-          <li><strong>Text</strong>: click any heading or paragraph → type → click outside to finish.</li>
-          <li><strong>Images</strong>: click any photo → pick a new one.</li>
-          <li><strong>Save</strong>: click <em>Save changes</em> at the top of the preview. Changes go live immediately.</li>
-          <li><strong>Discard</strong>: reloads the page and drops unsaved edits.</li>
+          <li><strong>Text</strong>: click any heading or paragraph → type → click outside.</li>
+          <li><strong>Images / videos</strong>: click → pick a new file. Videos max 4 MB.</li>
+          <li><strong>Backgrounds</strong>: hover a section → click <em>Change background</em>.</li>
+          <li><strong>Save</strong>: stores drafts. Not visible on the live site.</li>
+          <li><strong>Publish</strong>: marks everything on this page as live. Visitors see it immediately.</li>
         </ul>
-        <p class="we-help__note">Section templates (add/remove full sections) are coming in the next update.</p>
+        <p class="we-help__note">Section templates (add/remove full sections) coming next.</p>
       </div>
     </aside>
 
-    <!-- RIGHT: live iframe preview -->
+    <!-- RIGHT: live iframe -->
     <main class="we-canvas">
       <div class="we-canvas__toolbar">
         <div class="we-canvas__left">
           <div id="currentPage" class="we-current-page">Select a page →</div>
         </div>
         <div class="we-canvas__right">
-          <a id="viewLive" class="btn btn--ghost btn--sm hidden" target="_blank" rel="noopener">View live ↗</a>
           <span id="editCount" class="we-edit-count hidden"></span>
+          <span id="saveStatus" class="we-save-status hidden"></span>
+          <a id="viewLive" class="btn btn--ghost btn--sm hidden" target="_blank" rel="noopener">View live ↗</a>
+          <button type="button" class="btn btn--ghost btn--sm" id="discardBtn" disabled>Discard</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="saveDraftBtn" disabled>Save draft</button>
+          <button type="button" class="btn btn--sm" id="publishBtn" disabled>Publish</button>
         </div>
       </div>
       <div class="we-canvas__frame">
@@ -63,8 +68,6 @@
 
   <script src="/admin/admin.js"></script>
   <script>
-    // Curated list of editable pages. Not every HTML file — thank-you.html
-    // and admin/* are not shown here.
     const PAGES = [
       { path: "/index.html",                 label: "Home" },
       { path: "/about.html",                 label: "About" },
@@ -83,46 +86,83 @@
       { path: "/immigrants-identity.html",   label: "Immigrants & Identity" },
     ];
 
-    const state = { activePath: null, editCounts: {} };
-
-    async function loadEditCounts() {
-      try {
-        const data = await AdminAPI.get("/api/admin/edits");
-        (data.patches || []).forEach(row => { state.editCounts[row.page_path] = row.n; });
-      } catch { /* silent */ }
-    }
+    const state = { activePath: null, dirty: 0 };
+    const $ = (id) => document.getElementById(id);
 
     function renderPageList() {
-      const ul = document.getElementById("pageList");
+      const ul = $("pageList");
       ul.innerHTML = PAGES.map(p => `
         <li>
           <button type="button" class="we-page-btn${state.activePath === p.path ? ' is-active' : ''}" data-path="${p.path}">
             <span class="we-page-btn__label">${escapeHtml(p.label)}</span>
             <span class="we-page-btn__slug">${escapeHtml(p.path)}</span>
-            ${state.editCounts[p.path] ? `<span class="we-page-btn__badge">${state.editCounts[p.path]}</span>` : ""}
           </button>
         </li>
       `).join("");
       ul.querySelectorAll(".we-page-btn").forEach(b => {
-        b.addEventListener("click", () => openPage(b.dataset.path));
+        b.addEventListener("click", () => {
+          if (state.dirty > 0 && !confirm("You have " + state.dirty + " unsaved change(s). Discard and switch pages?")) return;
+          openPage(b.dataset.path);
+        });
       });
     }
 
     function openPage(path) {
       state.activePath = path;
+      state.dirty = 0;
       const page = PAGES.find(p => p.path === path) || { label: path };
-      document.getElementById("currentPage").innerHTML =
-        `<strong>${escapeHtml(page.label)}</strong> <span>${escapeHtml(path)}</span>`;
-      const live = document.getElementById("viewLive");
+      $("currentPage").innerHTML = `<strong>${escapeHtml(page.label)}</strong> <span>${escapeHtml(path)}</span>`;
+      const live = $("viewLive");
       live.href = path;
       live.classList.remove("hidden");
-      document.getElementById("framePlaceholder").classList.add("hidden");
-      const iframe = document.getElementById("previewFrame");
+      $("framePlaceholder").classList.add("hidden");
+      const iframe = $("previewFrame");
       iframe.classList.remove("hidden");
-      // Fresh load with edit mode
       iframe.src = path + "?edit=1&_=" + Date.now();
-      // Re-highlight the active page
       renderPageList();
+      updateButtons();
+      $("editCount").classList.add("hidden");
+    }
+
+    function updateButtons() {
+      $("saveDraftBtn").disabled = state.dirty === 0;
+      $("publishBtn").disabled = state.dirty === 0 && state.activePath === null;
+      $("discardBtn").disabled = state.dirty === 0;
+      if (state.dirty > 0) {
+        $("editCount").textContent = state.dirty + " unsaved";
+        $("editCount").classList.remove("hidden");
+      } else {
+        $("editCount").classList.add("hidden");
+      }
+    }
+
+    function flashStatus(text, kind) {
+      const el = $("saveStatus");
+      el.textContent = text;
+      el.className = "we-save-status is-" + (kind || "info");
+      el.classList.remove("hidden");
+      setTimeout(() => el.classList.add("hidden"), 3500);
+    }
+
+    function sendToFrame(msg) {
+      const f = $("previewFrame");
+      try { f.contentWindow.postMessage(msg, "*"); } catch (e) {}
+    }
+
+    function bindTopBarActions() {
+      $("saveDraftBtn").addEventListener("click", () => {
+        $("saveDraftBtn").disabled = true;
+        sendToFrame({ type: "sm-edit-save" });
+      });
+      $("publishBtn").addEventListener("click", () => {
+        $("publishBtn").disabled = true;
+        sendToFrame({ type: "sm-edit-publish" });
+      });
+      $("discardBtn").addEventListener("click", () => {
+        if (state.dirty === 0) return;
+        if (!confirm("Discard " + state.dirty + " unsaved change(s)?")) return;
+        sendToFrame({ type: "sm-edit-discard" });
+      });
     }
 
     function bindMessages() {
@@ -130,28 +170,31 @@
         const d = e.data;
         if (!d || typeof d !== "object") return;
         if (d.type === "sm-edit-ready") {
-          // Iframe editor is live
+          state.dirty = 0;
+          updateButtons();
         } else if (d.type === "sm-edit-dirty") {
-          const badge = document.getElementById("editCount");
-          if (d.count > 0) {
-            badge.textContent = d.count + " unsaved";
-            badge.classList.remove("hidden");
-          } else {
-            badge.classList.add("hidden");
-          }
+          state.dirty = d.count || 0;
+          updateButtons();
         } else if (d.type === "sm-edit-saved") {
-          document.getElementById("editCount").classList.add("hidden");
-          // Refresh page badges
-          state.editCounts = {};
-          loadEditCounts().then(renderPageList);
+          state.dirty = 0;
+          updateButtons();
+          if (d.published) {
+            flashStatus("Published — live on the site", "good");
+          } else {
+            flashStatus("Draft saved", "info");
+          }
+        } else if (d.type === "sm-edit-error") {
+          $("saveDraftBtn").disabled = state.dirty === 0;
+          $("publishBtn").disabled = state.dirty === 0;
+          flashStatus("Save failed: " + d.error, "bad");
         }
       });
     }
 
     (async () => {
       if (!(await requireSession())) return;
-      await loadEditCounts();
       renderPageList();
+      bindTopBarActions();
       bindMessages();
     })();
   </script>
