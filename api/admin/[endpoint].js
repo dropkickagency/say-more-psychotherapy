@@ -655,7 +655,10 @@ async function handleEdits(req, res) {
         ON CONFLICT (page_path, element_path) DO UPDATE SET
           element_type = EXCLUDED.element_type,
           new_content  = EXCLUDED.new_content,
-          original     = COALESCE(EXCLUDED.original, content_patches.original),
+          -- Keep the FIRST-EVER `original` (the raw HTML) across
+          -- re-saves. Chained edits would otherwise overwrite it with
+          -- the previous edit's output, breaking any future drift check.
+          original     = COALESCE(content_patches.original, EXCLUDED.original),
           published    = CASE WHEN EXCLUDED.published THEN TRUE ELSE content_patches.published END,
           updated_at   = NOW()
       `;

@@ -27,6 +27,23 @@ var __SM_EDIT_MODE__ = false;
   if (__SM_EDIT_MODE__) return;
   if (/^\/admin(\/|$)/.test(window.location.pathname)) return;
 
+  // Normalise HTML for the drift-safety compare. The editor decorates
+  // every editable element with sm-* helper classes and toggles
+  // contenteditable on click; those got captured into old `original`
+  // snapshots. Live HTML doesn't have them, so a raw string compare
+  // always failed and every text patch was silently skipped.
+  function normalise(html) {
+    if (html == null) return '';
+    return String(html)
+      .replace(/\s+class="([^"]*)"/g, function (m, classes) {
+        var kept = classes.split(/\s+/).filter(function (c) { return c && c.indexOf('sm-') !== 0; });
+        return kept.length ? ' class="' + kept.join(' ') + '"' : '';
+      })
+      .replace(/\s+contenteditable="[^"]*"/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   var applied = false;
   function applyPatches(patches) {
     if (applied || !Array.isArray(patches)) return;
@@ -49,11 +66,11 @@ var __SM_EDIT_MODE__ = false;
         } else if (p.element_type === 'href') {
           el.setAttribute('href', p.new_content);
         } else {
-          // Safety: if the current innerHTML differs from what was captured
-          // at edit time, the HTML has drifted (a code deploy changed the
-          // surrounding markup). Skip the patch so we don't stomp on new
-          // content.
-          if (p.original && el.innerHTML.trim() !== p.original.trim()) return;
+          // Text patches always apply. The old drift-safety check that
+          // compared innerHTML to the captured `original` was killing
+          // legitimate edits: on chained re-edits the captured original
+          // is the *previous* edit's output, not the raw HTML, so it
+          // never matched live and the patch was silently dropped.
           el.innerHTML = p.new_content;
         }
       } catch (e) { /* skip individual failing patch */ }
