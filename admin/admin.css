@@ -747,9 +747,21 @@ h3 { font-size: 1.15rem; line-height: 1.25; }
 }
 .ins-row__icon svg { width: 18px; height: 18px; display: block; }
 .ins-row__flag {
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
   line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.08));
+  flex-shrink: 0;
+}
+.ins-row__flag .flag-img {
+  width: 22px;
+  height: 16px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  display: block;
+}
+.ins-row__flag .flag-fallback {
+  font-size: 18px;
 }
 
 .ins-empty {

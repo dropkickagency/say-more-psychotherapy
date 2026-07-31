@@ -222,9 +222,12 @@
     return COUNTRY_NAMES[String(iso).toUpperCase()] || iso;
   }
   function countryFlag(iso) {
-    if (!iso || iso.length !== 2) return "🏳️";
-    const cc = String(iso).toUpperCase();
-    return String.fromCodePoint(...cc.split("").map(c => 127397 + c.charCodeAt(0)));
+    if (!iso || iso.length !== 2) {
+      return `<span class="flag-fallback" aria-hidden="true">🏳️</span>`;
+    }
+    const lower = String(iso).toLowerCase();
+    // flagcdn.com serves free SVG country flags at a stable URL by ISO code.
+    return `<img class="flag-img" src="https://flagcdn.com/w40/${lower}.png" srcset="https://flagcdn.com/w80/${lower}.png 2x" width="22" height="16" alt="${escapeHtml(iso)}" loading="lazy" />`;
   }
 
   //------------------------------------------------------------

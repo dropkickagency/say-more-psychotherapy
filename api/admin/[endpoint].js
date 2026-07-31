@@ -349,12 +349,23 @@ async function handleInsights(req, res) {
         GROUP BY session_id
       ) s
     `,
-    sql`SELECT COUNT(DISTINCT session_id)::int AS c FROM page_views WHERE created_at > NOW() - INTERVAL '5 minutes'`,
+    // "Online" = real (non-seed) sessions active in the last 5 minutes,
+    // and always excluding any row dated in the future (defensive).
+    sql`
+      SELECT COUNT(DISTINCT session_id)::int AS c FROM page_views
+      WHERE created_at > NOW() - INTERVAL '5 minutes'
+        AND created_at <= NOW()
+        AND session_id NOT LIKE 'seed_%'
+    `,
+    // Timeseries: clamp to now so no "future" bucket shows up if seed
+    // rows drift ahead of clock skew.
     sql`
       SELECT DATE_TRUNC('day', created_at AT TIME ZONE 'UTC') AS day,
              COUNT(DISTINCT session_id)::int AS visitors,
              COUNT(*)::int AS pageviews
-      FROM page_views WHERE created_at >= ${since.toISOString()}
+      FROM page_views
+      WHERE created_at >= ${since.toISOString()}
+        AND created_at <= NOW()
       GROUP BY day ORDER BY day
     `,
     sql`
@@ -428,13 +439,22 @@ async function handleSeedInsights(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   await ensureSchema();
 
+  // Self-heal: earlier versions of the seed didn't clamp timestamps, so some
+  // seed rows ended up in the future and inflated the "online" count. Remove
+  // them here so every insights visit corrects prior bad seeds automatically.
+  const cleanup = await sql`
+    DELETE FROM page_views
+    WHERE session_id LIKE 'seed_%' AND created_at > NOW()
+  `;
+
   const [countRow] = await sql`SELECT COUNT(*)::int AS c FROM page_views`;
   if (countRow.c > 200) {
     return res.status(200).json({
       ok: false,
       skipped: true,
       existing_rows: countRow.c,
-      reason: "DB already has meaningful data — skipped to avoid double-seeding. Truncate page_views first if you want to re-seed.",
+      future_rows_cleaned: cleanup.count || 0,
+      reason: "DB already has meaningful data — skipped to avoid double-seeding.",
     });
   }
 
@@ -485,6 +505,9 @@ async function handleSeedInsights(req, res) {
   // ---- Generate rows ----
   const rows = [];
   const nowMs = Date.now();
+  // Never generate a timestamp within the last 10 minutes or in the future —
+  // that way seeded rows can't ever be counted as "online" active visitors.
+  const MAX_MS = nowMs - 10 * 60 * 1000;
   let sessionCounter = 0;
 
   DAILY_SESSIONS.forEach((sessionCount, dayIdx) => {
@@ -495,10 +518,8 @@ async function handleSeedInsights(req, res) {
     for (let s = 0; s < sessionCount; s++) {
       sessionCounter++;
       const sessionId = `seed_${sessionCounter}_${Math.random().toString(36).slice(2, 8)}`;
-      const startMs = dayStartMs + irand(0, 86400000);
+      const startMs = Math.min(dayStartMs + irand(0, 86400000), MAX_MS);
 
-      // Bounce (single-hit) probability: recent traffic is less bouncy (~36%),
-      // older traffic bouncier (~65%). Matches the 30d-vs-7d bounce gap.
       const bounceProb = daysAgo <= 7 ? 0.36 : 0.65;
       const bounce = Math.random() < bounceProb;
       const hitCount = bounce ? 1 : irand(2, 5);
@@ -512,7 +533,7 @@ async function handleSeedInsights(req, res) {
 
       for (let h = 0; h < hitCount; h++) {
         const path = weighted(PAGES);
-        const hitMs = startMs + h * irand(60000, 240000); // 1–4 min between hits
+        const hitMs = Math.min(startMs + h * irand(60000, 240000), MAX_MS);
         rows.push({
           path,
           referrer,
