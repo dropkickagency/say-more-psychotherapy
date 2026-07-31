@@ -3098,6 +3098,12 @@ a.tag:hover {
 /* ---- Section background image edit chip ---- */
 .sm-edit-mode .sm-editable-bg { outline: 1px dashed transparent; outline-offset: -4px; transition: outline-color 120ms; }
 .sm-edit-mode .sm-editable-bg:hover { outline-color: rgba(155, 112, 69, 0.45); }
+
+/* Sections with dark overlays for text-on-image contrast (e.g. .cta) fade
+   the overlay while editing so the admin can see the actual background
+   image they've uploaded. On the live site the overlay stays at full
+   strength for legibility. */
+.sm-edit-mode .cta::before { opacity: 0.15 !important; }
 .sm-bg-edit-chip {
   position: absolute;
   top: 14px; left: 14px;
