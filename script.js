@@ -204,7 +204,7 @@ var __SM_EDIT_MODE__ = false;
         .then(function (resp) {
           if (resp.ok && resp.body && resp.body.ok) {
             // Redirect to the thank-you page
-            window.location.href = 'thank-you.html';
+            window.location.href = 'thank-you';
             return;
           }
           btn.disabled = false;

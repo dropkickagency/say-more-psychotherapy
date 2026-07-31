@@ -17,7 +17,7 @@
   <!-- ============ TOP BAR (spans full width, above the two-pane layout) ============ -->
   <div class="editor-topbar">
     <div class="editor-topbar__left">
-      <a href="/admin/blog.html" class="editor-topbar__back">
+      <a href="/admin/blog" class="editor-topbar__back">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
         All posts
       </a>
@@ -995,7 +995,7 @@
     if (!confirm("Delete this post? This can't be undone.")) return;
     try {
       await AdminAPI.del(`/api/admin/posts?id=${state.id}`);
-      window.location.href = "/admin/blog.html";
+      window.location.href = "/admin/blog";
     } catch (err) {
       showAlert(document.getElementById("alert"), err.message, "error");
     }

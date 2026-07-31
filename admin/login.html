@@ -42,7 +42,7 @@
         const sess = await AdminAPI.get("/api/admin/session");
         if (sess.authenticated) {
           const params = new URLSearchParams(location.search);
-          const next = params.get("next") || "/admin/index.html";
+          const next = params.get("next") || "/admin/";
           window.location.href = next;
           return;
         }
@@ -60,7 +60,7 @@
         try {
           await AdminAPI.post("/api/admin/login", { password });
           const params = new URLSearchParams(location.search);
-          const next = params.get("next") || "/admin/index.html";
+          const next = params.get("next") || "/admin/";
           window.location.href = next;
         } catch (err) {
           showAlert(alertBox, err.message || "Wrong password.", "error");

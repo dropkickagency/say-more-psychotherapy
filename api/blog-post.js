@@ -152,7 +152,7 @@ function buildHtml(post, opts = {}) {
     "author": {
       "@type": "Person",
       "name": author,
-      "url": `${SITE_URL}/about.html`,
+      "url": `${SITE_URL}/about`,
     },
     "publisher": {
       "@type": "Organization",
@@ -225,41 +225,41 @@ function buildHtml(post, opts = {}) {
   <div class="promo">
     <div class="promo__inner">
       <span><span class="emo emo--sm">🌿</span> Get a free session now!</span>
-      <a href="/consultation.html">Click Here</a>
+      <a href="/consultation">Click Here</a>
     </div>
   </div>
 
   <header class="nav">
     <div class="wrap nav__inner">
-      <a href="/index.html" class="brand" aria-label="Say More Psychotherapy — home">
+      <a href="/index" class="brand" aria-label="Say More Psychotherapy — home">
         <img src="/logo.jpg" alt="Say More Psychotherapy" />
       </a>
       <nav class="nav__links">
-        <a href="/index.html">Home</a>
-        <a href="/about.html">About</a>
+        <a href="/index">Home</a>
+        <a href="/about">About</a>
         <div class="nav__item nav__item--has-dropdown">
-          <a href="/services.html">Services <span class="nav__item__caret">⌄</span></a>
+          <a href="/services">Services <span class="nav__item__caret">⌄</span></a>
           <div class="nav__dropdown">
-            <a href="/anxiety-therapy.html">Anxiety Therapy</a>
-            <a href="/depression-counselling.html">Depression Counselling</a>
-            <a href="/couples-therapy.html">Couples Therapy</a>
-            <a href="/relationship-issues.html">Relationship Issues</a>
-            <a href="/perinatal-postpartum.html">Infertility, Perinatal &amp; Postpartum</a>
-            <a href="/mens-issues.html">Men's Issues</a>
-            <a href="/parenting.html">Parenting</a>
-            <a href="/adhd.html">ADHD in Adults and Adolescents</a>
-            <a href="/immigrants-identity.html">Immigrants &amp; Identity</a>
+            <a href="/anxiety-therapy">Anxiety Therapy</a>
+            <a href="/depression-counselling">Depression Counselling</a>
+            <a href="/couples-therapy">Couples Therapy</a>
+            <a href="/relationship-issues">Relationship Issues</a>
+            <a href="/perinatal-postpartum">Infertility, Perinatal &amp; Postpartum</a>
+            <a href="/mens-issues">Men's Issues</a>
+            <a href="/parenting">Parenting</a>
+            <a href="/adhd">ADHD in Adults and Adolescents</a>
+            <a href="/immigrants-identity">Immigrants &amp; Identity</a>
           </div>
         </div>
-        <a href="/location.html">Location</a>
-        <a href="/blog.html" class="is-active">Blog</a>
+        <a href="/location">Location</a>
+        <a href="/blog" class="is-active">Blog</a>
       </nav>
       <div class="nav__cta">
         <a href="tel:+16479150231" class="nav__phone">
           <span class="emo emo--sm">📞</span>
           (647) 915-0231
         </a>
-        <a href="/consultation.html" class="btn btn--primary">Get Free Session</a>
+        <a href="/consultation" class="btn btn--primary">Get Free Session</a>
       </div>
       <button class="nav__toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navMobile">
         <span class="emo emo--lg">☰</span>
@@ -269,38 +269,38 @@ function buildHtml(post, opts = {}) {
 
   <div class="nav__mobile" id="navMobile" aria-hidden="true">
     <div class="nav__mobile__head">
-      <a href="/index.html" class="brand"><img src="/logo.jpg" alt="Say More Psychotherapy" /></a>
+      <a href="/index" class="brand"><img src="/logo.jpg" alt="Say More Psychotherapy" /></a>
       <button class="nav__mobile__close" id="navClose" aria-label="Close menu">
         <span class="emo emo--lg">✕</span>
       </button>
     </div>
     <nav class="nav__mobile__links">
-      <a href="/index.html">Home</a>
-      <a href="/about.html">About</a>
+      <a href="/index">Home</a>
+      <a href="/about">About</a>
       <details class="nav__mobile__submenu">
         <summary>Services <span class="nav__mobile__submenu__caret">⌄</span></summary>
         <div class="nav__mobile__submenu__items">
-          <a href="/services.html">All Services</a>
-          <a href="/anxiety-therapy.html">Anxiety Therapy</a>
-          <a href="/depression-counselling.html">Depression Counselling</a>
-          <a href="/couples-therapy.html">Couples Therapy</a>
-          <a href="/relationship-issues.html">Relationship Issues</a>
-          <a href="/perinatal-postpartum.html">Infertility, Perinatal &amp; Postpartum</a>
-          <a href="/mens-issues.html">Men's Issues</a>
-          <a href="/parenting.html">Parenting</a>
-          <a href="/adhd.html">ADHD in Adults and Adolescents</a>
-          <a href="/immigrants-identity.html">Immigrants &amp; Identity</a>
+          <a href="/services">All Services</a>
+          <a href="/anxiety-therapy">Anxiety Therapy</a>
+          <a href="/depression-counselling">Depression Counselling</a>
+          <a href="/couples-therapy">Couples Therapy</a>
+          <a href="/relationship-issues">Relationship Issues</a>
+          <a href="/perinatal-postpartum">Infertility, Perinatal &amp; Postpartum</a>
+          <a href="/mens-issues">Men's Issues</a>
+          <a href="/parenting">Parenting</a>
+          <a href="/adhd">ADHD in Adults and Adolescents</a>
+          <a href="/immigrants-identity">Immigrants &amp; Identity</a>
         </div>
       </details>
-      <a href="/location.html">Location</a>
-      <a href="/blog.html">Blog</a>
+      <a href="/location">Location</a>
+      <a href="/blog">Blog</a>
     </nav>
     <div class="nav__mobile__cta">
       <a href="tel:+16479150231" class="nav__mobile__phone">
         <span class="emo emo--sm">📞</span>
         (647) 915-0231
       </a>
-      <a href="/consultation.html" class="btn btn--primary">Get Free Session</a>
+      <a href="/consultation" class="btn btn--primary">Get Free Session</a>
     </div>
   </div>
 
@@ -311,7 +311,7 @@ function buildHtml(post, opts = {}) {
 
   <article class="blog-post">
     <div class="wrap wrap--narrow">
-      <a href="/blog.html" class="back-link">
+      <a href="/blog" class="back-link">
         <span class="back-link__icon"><span class="emo emo--sm">←</span></span>
         Back to Blog
       </a>
@@ -324,7 +324,7 @@ function buildHtml(post, opts = {}) {
           <div class="blog-post__byline-author">
             <img class="blog-post__avatar" src="/paras%20blog%20avatar.jpg" alt="${escapeAttr(author.split(",")[0] || "Paras Geramian")}" loading="lazy" />
             <div class="blog-post__byline-text">
-              <div class="blog-post__byline-name">Written by <a href="/about.html">${escapeHtml(author.split(",")[0] || "Paras Geramian")}</a></div>
+              <div class="blog-post__byline-name">Written by <a href="/about">${escapeHtml(author.split(",")[0] || "Paras Geramian")}</a></div>
               <div class="blog-post__byline-date">${dtHuman ? `Last Updated: <time datetime="${dtPublished}">${escapeHtml(dtHuman)}</time>` : ""} · ${readMin} min read</div>
             </div>
           </div>
@@ -376,8 +376,8 @@ function buildHtml(post, opts = {}) {
           <p class="blog-post__author-credentials">${escapeHtml(author.includes(",") ? author.split(",").slice(1).join(",").trim() : "Registered Psychotherapist (Qualifying) · CRPO")}</p>
           <p class="blog-post__author-bio">Paras is a relational psychotherapist working in Brampton and across Ontario. Her practice draws from psychodynamic, mindfulness-based, and somatic traditions — slowing things down enough to notice the patterns shaping your life.</p>
           <div class="blog-post__author-links">
-            <a href="/about.html">More about Paras →</a>
-            <a href="/consultation.html">Book a free consultation →</a>
+            <a href="/about">More about Paras →</a>
+            <a href="/consultation">Book a free consultation →</a>
           </div>
         </div>
       </aside>
@@ -385,7 +385,7 @@ function buildHtml(post, opts = {}) {
       <aside class="blog-post__cta">
         <h3>Considering therapy?</h3>
         <p>Paras offers a free 15-minute consultation — no pressure, just a conversation.</p>
-        <a href="/consultation.html" class="btn btn--primary">Get Your Free 15 Min. Session <span class="arrow emo emo--sm">→</span></a>
+        <a href="/consultation" class="btn btn--primary">Get Your Free 15 Min. Session <span class="arrow emo emo--sm">→</span></a>
       </aside>
     </div>
   </article>
@@ -394,7 +394,7 @@ function buildHtml(post, opts = {}) {
     <div class="wrap">
       <div class="foot__top">
         <div>
-          <a href="/index.html" class="foot__logo" aria-label="Say More Psychotherapy — home">
+          <a href="/index" class="foot__logo" aria-label="Say More Psychotherapy — home">
             <img src="/logo.jpg" alt="Say More Psychotherapy" />
           </a>
           <h4>Visit</h4>
@@ -410,11 +410,11 @@ function buildHtml(post, opts = {}) {
         <div>
           <h4>Around The Site</h4>
           <div class="foot__col">
-            <a href="/about.html">About</a>
-            <a href="/services.html">Services</a>
-            <a href="/location.html">Location</a>
-            <a href="/blog.html">Blog</a>
-            <a href="/consultation.html">Free Consultation</a>
+            <a href="/about">About</a>
+            <a href="/services">Services</a>
+            <a href="/location">Location</a>
+            <a href="/blog">Blog</a>
+            <a href="/consultation">Free Consultation</a>
           </div>
         </div>
         <div>
@@ -433,7 +433,7 @@ function buildHtml(post, opts = {}) {
         <div>© 2026 Say More Psychotherapy · Established With Care</div>
         <div class="foot__bottom__links">
           <a href="#">Privacy</a>
-          <a href="/admin/login.html">Admin</a>
+          <a href="/admin/login">Admin</a>
           <a href="#">CRPO Standards</a>
           <a href="#">Accessibility</a>
         </div>
@@ -460,7 +460,7 @@ function notFoundHtml() {
 <link rel="stylesheet" href="/styles.css" /></head>
 <body>
 <div class="wrap" style="padding: 6rem 1rem; text-align:center;">
-  <h1>404</h1><p>That post isn't here. <a href="/blog.html">Return to the blog</a>.</p>
+  <h1>404</h1><p>That post isn't here. <a href="/blog">Return to the blog</a>.</p>
 </div></body></html>`;
 }
 

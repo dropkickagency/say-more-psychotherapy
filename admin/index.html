@@ -19,23 +19,23 @@
         <strong>Say More Admin</strong>
       </div>
       <nav class="admin__nav">
-        <a href="/admin/index.html">
+        <a href="/admin/index">
           <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           Overview
         </a>
-        <a href="/admin/leads.html">
+        <a href="/admin/leads">
           <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Leads
         </a>
-        <a href="/admin/website.html">
+        <a href="/admin/website">
           <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
           Website
         </a>
-        <a href="/admin/blog.html">
+        <a href="/admin/blog">
           <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           Blog
         </a>
-        <a href="/admin/insights.html">
+        <a href="/admin/insights">
           <svg class="admin__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           Insights
         </a>
@@ -53,8 +53,8 @@
           <h1 class="admin__title">Overview <small>What's happening this week.</small></h1>
         </div>
         <div class="btn__row">
-          <a href="/admin/blog.html" class="btn btn--ghost">Manage blog</a>
-          <a href="/admin/leads.html" class="btn">View all leads</a>
+          <a href="/admin/blog" class="btn btn--ghost">Manage blog</a>
+          <a href="/admin/leads" class="btn">View all leads</a>
         </div>
       </div>
 
@@ -71,7 +71,7 @@
         <section class="card">
           <div class="card__title-row">
             <h2 class="card__title">Recent leads</h2>
-            <a href="/admin/leads.html" class="btn btn--ghost btn--sm">See all</a>
+            <a href="/admin/leads" class="btn btn--ghost btn--sm">See all</a>
           </div>
           <div id="recentLeads" class="loading">Loading…</div>
         </section>
@@ -79,7 +79,7 @@
         <section class="card">
           <div class="card__title-row">
             <h2 class="card__title">Recent posts</h2>
-            <a href="/admin/blog-edit.html" class="btn btn--ghost btn--sm">+ New post</a>
+            <a href="/admin/blog-edit" class="btn btn--ghost btn--sm">+ New post</a>
           </div>
           <div id="recentPosts" class="loading">Loading…</div>
         </section>
@@ -110,7 +110,7 @@
             <th>Name</th><th>Service</th><th>Status</th><th>Received</th>
           </tr></thead><tbody>${
             data.recentLeads.map(l => `<tr>
-              <td><a href="/admin/leads.html#lead-${l.id}"><strong>${escapeHtml(l.name)}</strong></a><br><small style="color:#7A6A5C;">${escapeHtml(l.email || "no email")}</small></td>
+              <td><a href="/admin/leads#lead-${l.id}"><strong>${escapeHtml(l.name)}</strong></a><br><small style="color:#7A6A5C;">${escapeHtml(l.email || "no email")}</small></td>
               <td>${escapeHtml(l.service || "—")}</td>
               <td>${statusChip(l.status)}</td>
               <td><small style="color:#7A6A5C;" title="${escapeHtml(fmtDateTime(l.created_at))}">${escapeHtml(fmtRelative(l.created_at))}</small></td>
@@ -121,14 +121,14 @@
         const postsEl = document.getElementById("recentPosts");
         if (!data.recentPosts.length) {
           postsEl.className = "empty";
-          postsEl.innerHTML = "<h3>No posts yet.</h3><p><a href='/admin/blog-edit.html' class='btn btn--sm'>+ Write your first post</a></p>";
+          postsEl.innerHTML = "<h3>No posts yet.</h3><p><a href='/admin/blog-edit' class='btn btn--sm'>+ Write your first post</a></p>";
         } else {
           postsEl.className = "";
           postsEl.innerHTML = `<table class="table"><thead><tr>
             <th>Title</th><th>Status</th><th>Updated</th>
           </tr></thead><tbody>${
             data.recentPosts.map(p => `<tr>
-              <td><a href="/admin/blog-edit.html?id=${p.id}"><strong>${escapeHtml(p.title)}</strong></a><br><small style="color:#7A6A5C;">/blog/${escapeHtml(p.slug)}</small></td>
+              <td><a href="/admin/blog-edit?id=${p.id}"><strong>${escapeHtml(p.title)}</strong></a><br><small style="color:#7A6A5C;">/blog/${escapeHtml(p.slug)}</small></td>
               <td>${publishChip(p.published)}</td>
               <td><small style="color:#7A6A5C;" title="${escapeHtml(fmtDateTime(p.updated_at))}">${escapeHtml(fmtRelative(p.updated_at))}</small></td>
             </tr>`).join("")

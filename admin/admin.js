@@ -1,6 +1,6 @@
 /* =========================
    Admin dashboard shared JS
-   - Session gate: redirect to /admin/login.html if not authed
+   - Session gate: redirect to /admin/login if not authed
    - Utility fetch wrapper with error surfacing
    - Small helpers used by each admin view
    ========================= */
@@ -31,7 +31,7 @@ const AdminAPI = {
     if (!res.ok) {
       if (res.status === 401 && !path.endsWith("/session") && !path.endsWith("/login")) {
         // Not logged in / expired — kick to login
-        window.location.href = "/admin/login.html?next=" + encodeURIComponent(window.location.pathname);
+        window.location.href = "/admin/login?next=" + encodeURIComponent(window.location.pathname);
         // Still throw so caller stops
         throw new Error("Not signed in.");
       }
@@ -46,19 +46,19 @@ async function requireSession() {
   try {
     const res = await AdminAPI.get("/api/admin/session");
     if (!res.authenticated) {
-      window.location.href = "/admin/login.html?next=" + encodeURIComponent(window.location.pathname);
+      window.location.href = "/admin/login?next=" + encodeURIComponent(window.location.pathname);
       return false;
     }
     return true;
   } catch {
-    window.location.href = "/admin/login.html";
+    window.location.href = "/admin/login";
     return false;
   }
 }
 
 async function logout() {
   try { await AdminAPI.post("/api/admin/logout", {}); } catch { /* ignore */ }
-  window.location.href = "/admin/login.html";
+  window.location.href = "/admin/login";
 }
 
 function fmtDate(d) {
@@ -183,7 +183,7 @@ function markActiveNav() {
     const href = a.getAttribute("href");
     if (!href) return;
     const clean = href.replace(/\/$/, "");
-    if (clean === path || (clean === "/admin/index.html" && (path === "/admin" || path === "/admin/index.html"))) {
+    if (clean === path || (clean === "/admin/index" && (path === "/admin" || path === "/admin/index"))) {
       a.classList.add("is-active");
     }
   });

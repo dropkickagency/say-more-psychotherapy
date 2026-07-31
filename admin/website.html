@@ -16,7 +16,7 @@
 
     <!-- LEFT: page picker -->
     <aside class="we-sidebar">
-      <a href="/admin/index.html" class="we-back">
+      <a href="/admin/index" class="we-back">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
         Admin
       </a>
@@ -73,21 +73,21 @@
   <script src="/admin/admin.js"></script>
   <script>
     const PAGES = [
-      { path: "/index.html",                 label: "Home" },
-      { path: "/about.html",                 label: "About" },
-      { path: "/services.html",              label: "Services" },
-      { path: "/consultation.html",          label: "Book a Consultation" },
-      { path: "/location.html",              label: "Location" },
-      { path: "/blog.html",                  label: "Blog" },
-      { path: "/anxiety-therapy.html",       label: "Anxiety Therapy" },
-      { path: "/depression-counselling.html",label: "Depression Counselling" },
-      { path: "/couples-therapy.html",       label: "Couples Therapy" },
-      { path: "/relationship-issues.html",   label: "Relationship Issues" },
-      { path: "/perinatal-postpartum.html",  label: "Perinatal & Postpartum" },
-      { path: "/mens-issues.html",           label: "Men's Issues" },
-      { path: "/parenting.html",             label: "Parenting" },
-      { path: "/adhd.html",                  label: "ADHD" },
-      { path: "/immigrants-identity.html",   label: "Immigrants & Identity" },
+      { path: "/",                      label: "Home" },
+      { path: "/about",                 label: "About" },
+      { path: "/services",              label: "Services" },
+      { path: "/consultation",          label: "Book a Consultation" },
+      { path: "/location",              label: "Location" },
+      { path: "/blog",                  label: "Blog" },
+      { path: "/anxiety-therapy",       label: "Anxiety Therapy" },
+      { path: "/depression-counselling",label: "Depression Counselling" },
+      { path: "/couples-therapy",       label: "Couples Therapy" },
+      { path: "/relationship-issues",   label: "Relationship Issues" },
+      { path: "/perinatal-postpartum",  label: "Perinatal & Postpartum" },
+      { path: "/mens-issues",           label: "Men's Issues" },
+      { path: "/parenting",             label: "Parenting" },
+      { path: "/adhd",                  label: "ADHD" },
+      { path: "/immigrants-identity",   label: "Immigrants & Identity" },
     ];
 
     const state = { activePath: null, dirty: 0, history: 0 };
