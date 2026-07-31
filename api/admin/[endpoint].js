@@ -583,6 +583,65 @@ async function handleSeedInsights(req, res) {
   });
 }
 
+// ---- Website editor content patches ----
+// GET  /api/admin/edits?path=/foo    → list patches for a page
+// GET  /api/admin/edits              → list all patches (grouped-friendly)
+// POST /api/admin/edits              → upsert one or many
+// DELETE /api/admin/edits?id=X       → remove a single patch
+// DELETE /api/admin/edits?path=/foo  → remove every patch on a page
+async function handleEdits(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (!assertDb(res)) return;
+  await ensureSchema();
+
+  if (req.method === "GET") {
+    const path = req.query && req.query.path;
+    const rows = path
+      ? await sql`SELECT * FROM content_patches WHERE page_path = ${path} ORDER BY updated_at DESC`
+      : await sql`SELECT page_path, COUNT(*)::int AS n, MAX(updated_at) AS last_updated FROM content_patches GROUP BY page_path ORDER BY last_updated DESC`;
+    return res.status(200).json({ patches: rows });
+  }
+
+  if (req.method === "POST") {
+    const body = parseBody(req);
+    const patches = Array.isArray(body.patches) ? body.patches : [body];
+    const pagePath = String(body.page_path || (patches[0] && patches[0].page_path) || "").trim();
+    if (!pagePath) return res.status(400).json({ error: "page_path required" });
+
+    let saved = 0;
+    for (const p of patches) {
+      if (!p.element_path || !p.new_content) continue;
+      await sql`
+        INSERT INTO content_patches (page_path, element_path, element_type, new_content, original, updated_at)
+        VALUES (${pagePath}, ${p.element_path}, ${p.element_type || "text"}, ${p.new_content}, ${p.original || null}, NOW())
+        ON CONFLICT (page_path, element_path) DO UPDATE SET
+          element_type = EXCLUDED.element_type,
+          new_content  = EXCLUDED.new_content,
+          original     = COALESCE(EXCLUDED.original, content_patches.original),
+          updated_at   = NOW()
+      `;
+      saved++;
+    }
+    return res.status(200).json({ ok: true, saved });
+  }
+
+  if (req.method === "DELETE") {
+    const id = req.query && req.query.id;
+    const path = req.query && req.query.path;
+    if (id) {
+      await sql`DELETE FROM content_patches WHERE id = ${id}`;
+      return res.status(200).json({ ok: true });
+    }
+    if (path) {
+      await sql`DELETE FROM content_patches WHERE page_path = ${path}`;
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(400).json({ error: "id or path required" });
+  }
+
+  return res.status(405).json({ error: "Method not allowed." });
+}
+
 // =============================================================
 // Router
 // =============================================================
@@ -596,6 +655,7 @@ const ROUTES = {
   "upload-image":   handleUploadImage,
   "insights":       handleInsights,
   "seed-insights":  handleSeedInsights,
+  "edits":          handleEdits,
 };
 
 export default async function handler(req, res) {

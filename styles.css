@@ -2948,6 +2948,117 @@ a.tag:hover {
 .about-hero + .location,
 .service-detail + .location { padding-top: var(--space-xl); padding-bottom: var(--space-xl); }
 
+/* ==============================================================
+   Website Editor overlay — only visible when the page is loaded
+   inside the admin editor with ?edit=1. edit-mode.js adds the
+   sm-edit-mode class to <html>, so nothing renders otherwise.
+   ============================================================== */
+.sm-edit-mode .sm-editable-text {
+  outline: 1px dashed transparent;
+  outline-offset: 3px;
+  transition: outline-color 120ms, background-color 120ms;
+  cursor: text;
+  border-radius: 3px;
+}
+.sm-edit-mode .sm-editable-text:hover {
+  outline-color: rgba(155, 112, 69, 0.55);
+  background-color: rgba(232, 184, 176, 0.14);
+}
+.sm-edit-mode .sm-editable-text.sm-editing {
+  outline: 2px solid #9B7045;
+  background-color: rgba(232, 184, 176, 0.22);
+  cursor: text;
+}
+.sm-edit-mode .sm-editable-image {
+  cursor: pointer;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 120ms, filter 120ms;
+}
+.sm-edit-mode .sm-editable-image:hover {
+  outline-color: #9B7045;
+  filter: brightness(0.92);
+}
+.sm-edit-mode .sm-editable-image.sm-uploading {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+/* Prevent hover-links from activating during edit — they're neutralised
+   in JS but we also disable :hover cursor for clarity */
+.sm-edit-mode a { cursor: text !important; }
+
+/* Editor toolbar (sits at the top of the iframe body) */
+.sm-edit-toolbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 999999;
+  background: rgba(20, 17, 15, 0.94);
+  color: #F7F4EE;
+  padding: 10px 20px;
+  font-family: 'Manrope', -apple-system, system-ui, sans-serif;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+.sm-edit-mode body { padding-top: 56px !important; }
+.sm-edit-toolbar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.sm-edit-toolbar__pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.sm-edit-toolbar__dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #F97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
+  animation: sm-pulse 1.6s infinite;
+}
+@keyframes sm-pulse {
+  0%,100% { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25); }
+  50%     { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.1); }
+}
+.sm-edit-toolbar__hint {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(247, 244, 238, 0.75);
+}
+.sm-edit-toolbar__actions {
+  display: flex; gap: 10px;
+}
+.sm-edit-toolbar__actions button {
+  background: rgba(255, 255, 255, 0.1);
+  color: #F7F4EE;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms, transform 120ms;
+}
+.sm-edit-toolbar__actions button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.18); }
+.sm-edit-toolbar__actions button:disabled { opacity: 0.4; cursor: default; }
+.sm-edit-toolbar__actions button.is-primary {
+  background: #EA580C;
+  border-color: #EA580C;
+  color: #FFFFFF;
+}
+.sm-edit-toolbar__actions button.is-primary:hover { background: #C2410C; border-color: #C2410C; }
+
 /* ---------- Soft pink page background helper ---------- */
 .bg-pink { background: linear-gradient(180deg, #FBEEEA 0%, #F7DFD7 100%); }
 .bg-surface { background: var(--color-surface); }

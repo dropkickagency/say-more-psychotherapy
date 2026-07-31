@@ -1,11 +1,68 @@
 // Enable animation styles only when JS is available
 document.documentElement.classList.add('js-animate');
 
+// ---- Edit mode: if this page was loaded in the admin website editor with
+//      ?edit=1, load the editor overlay and skip the runtime patcher/beacon.
+var __SM_EDIT_MODE__ = false;
+(function () {
+  try {
+    var qs = new URLSearchParams(window.location.search);
+    if (qs.get('edit') !== '1') return;
+    // Only trust ?edit=1 when this page is embedded in an iframe (i.e. the
+    // admin's website editor) — random visitors adding ?edit=1 don't get UI.
+    if (window.top === window.self) return;
+    __SM_EDIT_MODE__ = true;
+    var s = document.createElement('script');
+    s.src = '/admin/edit-mode.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  } catch (e) {}
+})();
+
+// ---- Content patches from the website editor (applied at page load) ----
+// Runs on every public page — fetches any admin-authored edits for this
+// path from /api/edits and overlays them onto the static HTML.
+// Skipped in edit mode so the editor sees the raw HTML.
+(function () {
+  if (__SM_EDIT_MODE__) return;
+  if (/^\/admin(\/|$)/.test(window.location.pathname)) return;
+
+  var applied = false;
+  function applyPatches(patches) {
+    if (applied || !Array.isArray(patches)) return;
+    applied = true;
+    patches.forEach(function (p) {
+      try {
+        var el = document.querySelector(p.element_path);
+        if (!el) return;
+        if (p.element_type === 'image') {
+          if (el.tagName === 'IMG') el.setAttribute('src', p.new_content);
+        } else if (p.element_type === 'href') {
+          el.setAttribute('href', p.new_content);
+        } else {
+          // Safety: if the current innerHTML differs from what was captured
+          // at edit time, the HTML has drifted (a code deploy changed the
+          // surrounding markup). Skip the patch so we don't stomp on new
+          // content.
+          if (p.original && el.innerHTML.trim() !== p.original.trim()) return;
+          el.innerHTML = p.new_content;
+        }
+      } catch (e) { /* skip individual failing patch */ }
+    });
+  }
+
+  fetch('/api/edits?path=' + encodeURIComponent(window.location.pathname))
+    .then(function (r) { return r.json(); })
+    .then(function (d) { applyPatches(d && d.patches); })
+    .catch(function () { /* silent — page still works uneditied */ });
+})();
+
 // ---- Analytics beacon (fire-and-forget, sends one row per page view) ----
 // Skips admin pages and anything triggered by a Vercel prerender / build.
 (function () {
   try {
     if (/^\/admin(\/|$)/.test(window.location.pathname)) return;
+    if (__SM_EDIT_MODE__) return;   // never count admin edit views
 
     var SESSION_KEY = 'sm_session_id';
     var HITS_KEY = 'sm_session_hits';

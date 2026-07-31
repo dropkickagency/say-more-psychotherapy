@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Website Editor — Say More Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body class="editor-body-bg website-editor-body">
+  <div class="website-editor">
+
+    <!-- LEFT: page picker + info -->
+    <aside class="we-sidebar">
+      <a href="/admin/index.html" class="we-back">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        Admin
+      </a>
+      <h2 class="we-sidebar__title">Website</h2>
+      <p class="we-sidebar__sub">Click any text or image on the right to edit it. Save changes to update the live website.</p>
+
+      <div class="we-page-picker">
+        <div class="we-page-picker__label">Pages</div>
+        <ul id="pageList" class="we-page-list"><li class="loading">Loading pages…</li></ul>
+      </div>
+
+      <div class="we-help">
+        <h3>How it works</h3>
+        <ul>
+          <li><strong>Text</strong>: click any heading or paragraph → type → click outside to finish.</li>
+          <li><strong>Images</strong>: click any photo → pick a new one.</li>
+          <li><strong>Save</strong>: click <em>Save changes</em> at the top of the preview. Changes go live immediately.</li>
+          <li><strong>Discard</strong>: reloads the page and drops unsaved edits.</li>
+        </ul>
+        <p class="we-help__note">Section templates (add/remove full sections) are coming in the next update.</p>
+      </div>
+    </aside>
+
+    <!-- RIGHT: live iframe preview -->
+    <main class="we-canvas">
+      <div class="we-canvas__toolbar">
+        <div class="we-canvas__left">
+          <div id="currentPage" class="we-current-page">Select a page →</div>
+        </div>
+        <div class="we-canvas__right">
+          <a id="viewLive" class="btn btn--ghost btn--sm hidden" target="_blank" rel="noopener">View live ↗</a>
+          <span id="editCount" class="we-edit-count hidden"></span>
+        </div>
+      </div>
+      <div class="we-canvas__frame">
+        <div id="framePlaceholder" class="we-frame-placeholder">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <p>Pick a page from the left to start editing.</p>
+        </div>
+        <iframe id="previewFrame" class="we-frame hidden" title="Live preview"></iframe>
+      </div>
+    </main>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+  <script>
+    // Curated list of editable pages. Not every HTML file — thank-you.html
+    // and admin/* are not shown here.
+    const PAGES = [
+      { path: "/index.html",                 label: "Home" },
+      { path: "/about.html",                 label: "About" },
+      { path: "/services.html",              label: "Services" },
+      { path: "/consultation.html",          label: "Book a Consultation" },
+      { path: "/location.html",              label: "Location" },
+      { path: "/blog.html",                  label: "Blog" },
+      { path: "/anxiety-therapy.html",       label: "Anxiety Therapy" },
+      { path: "/depression-counselling.html",label: "Depression Counselling" },
+      { path: "/couples-therapy.html",       label: "Couples Therapy" },
+      { path: "/relationship-issues.html",   label: "Relationship Issues" },
+      { path: "/perinatal-postpartum.html",  label: "Perinatal & Postpartum" },
+      { path: "/mens-issues.html",           label: "Men's Issues" },
+      { path: "/parenting.html",             label: "Parenting" },
+      { path: "/adhd.html",                  label: "ADHD" },
+      { path: "/immigrants-identity.html",   label: "Immigrants & Identity" },
+    ];
+
+    const state = { activePath: null, editCounts: {} };
+
+    async function loadEditCounts() {
+      try {
+        const data = await AdminAPI.get("/api/admin/edits");
+        (data.patches || []).forEach(row => { state.editCounts[row.page_path] = row.n; });
+      } catch { /* silent */ }
+    }
+
+    function renderPageList() {
+      const ul = document.getElementById("pageList");
+      ul.innerHTML = PAGES.map(p => `
+        <li>
+          <button type="button" class="we-page-btn${state.activePath === p.path ? ' is-active' : ''}" data-path="${p.path}">
+            <span class="we-page-btn__label">${escapeHtml(p.label)}</span>
+            <span class="we-page-btn__slug">${escapeHtml(p.path)}</span>
+            ${state.editCounts[p.path] ? `<span class="we-page-btn__badge">${state.editCounts[p.path]}</span>` : ""}
+          </button>
+        </li>
+      `).join("");
+      ul.querySelectorAll(".we-page-btn").forEach(b => {
+        b.addEventListener("click", () => openPage(b.dataset.path));
+      });
+    }
+
+    function openPage(path) {
+      state.activePath = path;
+      const page = PAGES.find(p => p.path === path) || { label: path };
+      document.getElementById("currentPage").innerHTML =
+        `<strong>${escapeHtml(page.label)}</strong> <span>${escapeHtml(path)}</span>`;
+      const live = document.getElementById("viewLive");
+      live.href = path;
+      live.classList.remove("hidden");
+      document.getElementById("framePlaceholder").classList.add("hidden");
+      const iframe = document.getElementById("previewFrame");
+      iframe.classList.remove("hidden");
+      // Fresh load with edit mode
+      iframe.src = path + "?edit=1&_=" + Date.now();
+      // Re-highlight the active page
+      renderPageList();
+    }
+
+    function bindMessages() {
+      window.addEventListener("message", (e) => {
+        const d = e.data;
+        if (!d || typeof d !== "object") return;
+        if (d.type === "sm-edit-ready") {
+          // Iframe editor is live
+        } else if (d.type === "sm-edit-dirty") {
+          const badge = document.getElementById("editCount");
+          if (d.count > 0) {
+            badge.textContent = d.count + " unsaved";
+            badge.classList.remove("hidden");
+          } else {
+            badge.classList.add("hidden");
+          }
+        } else if (d.type === "sm-edit-saved") {
+          document.getElementById("editCount").classList.add("hidden");
+          // Refresh page badges
+          state.editCounts = {};
+          loadEditCounts().then(renderPageList);
+        }
+      });
+    }
+
+    (async () => {
+      if (!(await requireSession())) return;
+      await loadEditCounts();
+      renderPageList();
+      bindMessages();
+    })();
+  </script>
+</body>
+</html>
