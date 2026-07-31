@@ -13,6 +13,24 @@
   var patches = new Map(); // element_path -> { element_type, new_content, original }
   var history = [];        // stack of { element_path, element_type, prev, next } — undo pops from the end
 
+  // Editor decorates every editable element with helper classes (sm-editable-text,
+  // sm-editing, sm-uploading, sm-editable-image, etc.) and toggles contenteditable
+  // on click. When a user edits a parent element, its innerHTML captures those
+  // decorations from CHILD elements too — polluting the saved patch with
+  // "sm-editable-text" classes that then get baked into the live DOM. Strip them
+  // before saving so patches contain only real content.
+  function cleanEditorMarkup(html) {
+    if (html == null) return html;
+    return String(html)
+      .replace(/\s+class="([^"]*)"/g, function (m, classes) {
+        var kept = classes.split(/\s+/).filter(function (c) {
+          return c && c.indexOf("sm-") !== 0;
+        });
+        return kept.length ? ' class="' + kept.join(" ") + '"' : "";
+      })
+      .replace(/\s+contenteditable="[^"]*"/g, "");
+  }
+
   //---------- Utils ----------
   function elementPath(el) {
     var parts = [];
@@ -365,10 +383,11 @@
       el.setAttribute("contenteditable", "false");
       el.classList.remove("sm-editing");
       if (el.innerHTML !== original) {
-        var newHtml = el.innerHTML;
+        var newHtml = cleanEditorMarkup(el.innerHTML);
+        var cleanOrig = cleanEditorMarkup(original);
         var path = elementPath(el);
         var existing = patches.get(path);
-        var origSnapshot = existing ? existing.original : original;
+        var origSnapshot = existing ? existing.original : cleanOrig;
         patches.set(path, { element_type: "text", new_content: newHtml, original: origSnapshot });
         pushHistory({ element_path: path, element_type: "text", prev: original, next: newHtml, origSnapshot: origSnapshot });
 
@@ -381,7 +400,7 @@
             var tOrig = t.innerHTML;
             t.innerHTML = newHtml;
             var tExisting = patches.get(tPath);
-            var tOrigSnap = tExisting ? tExisting.original : tOrig;
+            var tOrigSnap = tExisting ? tExisting.original : cleanEditorMarkup(tOrig);
             patches.set(tPath, { element_type: "text", new_content: newHtml, original: tOrigSnap });
             pushHistory({ element_path: tPath, element_type: "text", prev: tOrig, next: newHtml, origSnapshot: tOrigSnap });
           } catch (e) {}

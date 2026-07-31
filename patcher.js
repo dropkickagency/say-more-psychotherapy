@@ -30,6 +30,21 @@
     // Failsafe: never leave the page hidden if the API is slow / down.
     setTimeout(reveal, 800);
 
+    // Strip editor-only decorations (sm-* helper classes, contenteditable
+    // attributes) that legacy patches captured. Cosmetic on live pages, but
+    // keeps the served DOM clean.
+    function cleanEditorMarkup(html) {
+      if (html == null) return html;
+      return String(html)
+        .replace(/\s+class="([^"]*)"/g, function (m, classes) {
+          var kept = classes.split(/\s+/).filter(function (c) {
+            return c && c.indexOf("sm-") !== 0;
+          });
+          return kept.length ? ' class="' + kept.join(" ") + '"' : "";
+        })
+        .replace(/\s+contenteditable="[^"]*"/g, "");
+    }
+
     function applyOne(el, type, content) {
       // Never overwrite with an empty/null value — that would just blank the image/video.
       if (content == null || content === "") return;
@@ -47,7 +62,7 @@
         } else if (type === "href") {
           el.setAttribute("href", content);
         } else {
-          el.innerHTML = content;
+          el.innerHTML = cleanEditorMarkup(content);
         }
       } catch (e) {}
     }
