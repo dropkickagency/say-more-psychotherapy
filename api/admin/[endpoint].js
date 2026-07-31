@@ -649,6 +649,8 @@ async function handleEdits(req, res) {
                     FROM content_patches
                     GROUP BY page_path
                     ORDER BY last_updated DESC`;
+    // Never cache — editor must always see the latest server state
+    res.setHeader("Cache-Control", "no-store");
     return res.status(200).json({ patches: rows });
   }
 

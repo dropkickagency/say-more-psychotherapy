@@ -31,6 +31,8 @@
     setTimeout(reveal, 800);
 
     function applyOne(el, type, content) {
+      // Never overwrite with an empty/null value — that would just blank the image/video.
+      if (content == null || content === "") return;
       try {
         if (type === "image") {
           if (el.tagName === "IMG") el.setAttribute("src", content);

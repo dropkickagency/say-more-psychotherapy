@@ -12,8 +12,9 @@ var __SM_EDIT_MODE__ = false;
     // admin's website editor) — random visitors adding ?edit=1 don't get UI.
     if (window.top === window.self) return;
     __SM_EDIT_MODE__ = true;
+    // Cache-bust each iframe load so we're always running the latest editor
     var s = document.createElement('script');
-    s.src = '/admin/edit-mode.js';
+    s.src = '/admin/edit-mode.js?v=' + Date.now();
     s.defer = true;
     document.head.appendChild(s);
   } catch (e) {}

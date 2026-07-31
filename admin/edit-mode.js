@@ -237,6 +237,7 @@
   }
 
   async function saveAll(publish) {
+    console.log("[sm-edit] saveAll: patches.size=" + patches.size + " publish=" + publish + " page=" + window.location.pathname);
     if (patches.size === 0 && !publish) return { ok: true, saved: 0 };
 
     // Flatten patches Map → array
@@ -249,6 +250,7 @@
         original: p.original,
       });
     });
+    console.log("[sm-edit] saveAll: flattened to", all.length, "patch object(s)");
 
     // Group into batches by JSON size
     var batches = [];
@@ -275,17 +277,22 @@
     if (current.length) batches.push(current);
     if (batches.length === 0) batches.push([]);  // for publish-only calls with no new patches
 
+    console.log("[sm-edit] saveAll: sending in", batches.length, "batch(es)");
+
     // Send each batch; only the LAST batch carries publish flags so that
     // "publish all" runs once at the end after every draft is upserted.
     var totalSaved = 0;
     var totalPromoted = 0;
     for (var b = 0; b < batches.length; b++) {
       var isLast = b === batches.length - 1;
+      console.log("[sm-edit] saveAll: batch " + (b + 1) + "/" + batches.length + " (" + batches[b].length + " patch(es))");
       var r = await postBatch(batches[b], !!publish && isLast, !!publish && isLast);
+      console.log("[sm-edit] saveAll: batch " + (b + 1) + " done — saved=" + (r.saved || 0) + " promoted=" + (r.promoted || 0));
       totalSaved += r.saved || 0;
       totalPromoted += r.promoted || 0;
     }
 
+    console.log("[sm-edit] saveAll: complete — total saved=" + totalSaved + " promoted=" + totalPromoted);
     patches.clear();
     updateToolbar();
     return { ok: true, saved: totalSaved, promoted: totalPromoted };
@@ -610,14 +617,18 @@
   //---------- Load existing patches so the editor sees the current state ----------
   async function applyExistingPatches() {
     try {
-      var res = await fetch("/api/admin/edits?path=" + encodeURIComponent(window.location.pathname), {
+      var res = await fetch("/api/admin/edits?path=" + encodeURIComponent(window.location.pathname) + "&t=" + Date.now(), {
         credentials: "same-origin",
+        cache: "no-store",
       });
       var json = await res.json();
-      (json.patches || []).forEach(function (p) {
+      var list = (json && json.patches) || [];
+      console.log("[sm-edit] loaded", list.length, "existing patch(es) for", window.location.pathname);
+      list.forEach(function (p) {
         try {
           var el = document.querySelector(p.element_path);
-          if (!el) return;
+          if (!el) { console.warn("[sm-edit] patch target not found:", p.element_path); return; }
+          if (p.new_content == null || p.new_content === "") { console.warn("[sm-edit] patch has empty new_content, skipping", p.element_path); return; }
           if (p.element_type === "image") {
             if (el.tagName === "IMG") el.setAttribute("src", p.new_content);
           } else if (p.element_type === "video") {
@@ -631,9 +642,9 @@
           } else {
             el.innerHTML = p.new_content;
           }
-        } catch (e) {}
+        } catch (e) { console.warn("[sm-edit] apply-existing failed for", p.element_path, e && e.message); }
       });
-    } catch (e) { /* silent */ }
+    } catch (e) { console.warn("[sm-edit] applyExistingPatches fetch failed:", e && e.message); }
   }
 
   //---------- Prevent navigation while editing ----------
