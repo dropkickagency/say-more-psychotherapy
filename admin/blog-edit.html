@@ -291,10 +291,37 @@
   //---------------------------------------------------------
   // Image upload (used by Quill toolbar, cover, and drag-drop)
   //---------------------------------------------------------
-  function uploadImage(file) {
-    return new Promise((resolve, reject) => {
-      if (!/^image\//.test(file.type)) return reject(new Error("Please choose an image file."));
-      if (file.size > 8 * 1024 * 1024) return reject(new Error("Image is too large (max 8 MB)."));
+  // Files > 3 MB go client-direct to Vercel Blob (bypasses 4.5 MB
+  // serverless limit). Smaller files use the base64 endpoint.
+  let _blobClientPromise = null;
+  function loadBlobClient() {
+    if (!_blobClientPromise) {
+      _blobClientPromise = import("https://esm.sh/@vercel/blob@0.27.3/client")
+        .catch(() => import("https://cdn.jsdelivr.net/npm/@vercel/blob@0.27.3/dist/client/index.mjs"));
+    }
+    return _blobClientPromise;
+  }
+
+  async function uploadImage(file) {
+    if (!/^image\//.test(file.type)) throw new Error("Please choose an image file.");
+    if (file.size > 50 * 1024 * 1024) throw new Error("Image is too large (max 50 MB).");
+
+    if (file.size > 3 * 1024 * 1024) {
+      try {
+        const mod = await loadBlobClient();
+        const blob = await mod.upload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/admin/upload-token",
+          contentType: file.type,
+        });
+        return blob.url;
+      } catch (err) {
+        if (file.size > 4 * 1024 * 1024) throw new Error("Upload failed: " + err.message);
+        // Small enough to try the base64 fallback below
+      }
+    }
+
+    return await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const b64 = String(e.target.result || "").split(",")[1];

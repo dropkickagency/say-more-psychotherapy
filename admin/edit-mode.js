@@ -48,6 +48,37 @@
 
   function post(msg) { try { window.parent.postMessage(msg, "*"); } catch (e) {} }
 
+  // Find "twin" elements on the page — same tag AND same current text content
+  // as `el`. This catches desktop/mobile duplicates like the site's separate
+  // .nav__links and .nav__mobile__links copies of the same nav items, so an
+  // edit on desktop also updates the mobile drawer.
+  function findTextTwins(el, matchText) {
+    var out = [];
+    if (!el || !matchText) return out;
+    var wanted = String(matchText).trim();
+    if (!wanted) return out;
+    var candidates = document.querySelectorAll(el.tagName.toLowerCase());
+    for (var i = 0; i < candidates.length; i++) {
+      var c = candidates[i];
+      if (c === el) continue;
+      if (c.closest(".sm-edit-toolbar")) continue;
+      if ((c.innerHTML || "").trim() === wanted) out.push(c);
+    }
+    return out;
+  }
+  function findAttrTwins(el, attr, matchValue) {
+    var out = [];
+    if (!el || !matchValue) return out;
+    var candidates = document.querySelectorAll(el.tagName.toLowerCase() + "[" + attr + "]");
+    for (var i = 0; i < candidates.length; i++) {
+      var c = candidates[i];
+      if (c === el) continue;
+      if (c.closest(".sm-edit-toolbar")) continue;
+      if (c.getAttribute(attr) === matchValue) out.push(c);
+    }
+    return out;
+  }
+
   function markDirty() {
     post({ type: "sm-edit-dirty", count: patches.size, history: history.length });
     updateToolbar();
@@ -264,11 +295,28 @@
       el.setAttribute("contenteditable", "false");
       el.classList.remove("sm-editing");
       if (el.innerHTML !== original) {
+        var newHtml = el.innerHTML;
         var path = elementPath(el);
         var existing = patches.get(path);
-        var origSnapshot = existing ? existing.original : original;  // never lose the first-ever original
-        patches.set(path, { element_type: "text", new_content: el.innerHTML, original: origSnapshot });
-        pushHistory({ element_path: path, element_type: "text", prev: original, next: el.innerHTML, origSnapshot: origSnapshot });
+        var origSnapshot = existing ? existing.original : original;
+        patches.set(path, { element_type: "text", new_content: newHtml, original: origSnapshot });
+        pushHistory({ element_path: path, element_type: "text", prev: original, next: newHtml, origSnapshot: origSnapshot });
+
+        // Sync mobile-twin elements (identical tag + identical current text).
+        // This handles the desktop-nav / mobile-drawer duplication.
+        var twins = findTextTwins(el, original);
+        twins.forEach(function (t) {
+          try {
+            var tPath = elementPath(t);
+            var tOrig = t.innerHTML;
+            t.innerHTML = newHtml;
+            var tExisting = patches.get(tPath);
+            var tOrigSnap = tExisting ? tExisting.original : tOrig;
+            patches.set(tPath, { element_type: "text", new_content: newHtml, original: tOrigSnap });
+            pushHistory({ element_path: tPath, element_type: "text", prev: tOrig, next: newHtml, origSnapshot: tOrigSnap });
+          } catch (e) {}
+        });
+
         markDirty();
       }
       el.removeEventListener("blur", finish);
@@ -350,6 +398,24 @@
       var origSnapshot = existing ? existing.original : wasSrc;
       patches.set(path, { element_type: "video", new_content: url, original: origSnapshot });
       pushHistory({ element_path: path, element_type: "video", prev: wasSrc, next: url, origSnapshot: origSnapshot });
+
+      // Sync mobile/desktop video twins pointing at the same original src
+      if (wasSrc) {
+        findAttrTwins(video, "src", wasSrc).forEach(function (t) {
+          try {
+            var tPath = elementPath(t);
+            var tOrigAttr = t.getAttribute("src");
+            t.querySelectorAll("source").forEach(function (s) { s.remove(); });
+            t.setAttribute("src", url);
+            try { t.load(); } catch (e) {}
+            var tExisting = patches.get(tPath);
+            var tOrigSnap = tExisting ? tExisting.original : tOrigAttr;
+            patches.set(tPath, { element_type: "video", new_content: url, original: tOrigSnap });
+            pushHistory({ element_path: tPath, element_type: "video", prev: tOrigAttr, next: url, origSnapshot: tOrigSnap });
+          } catch (e) {}
+        });
+      }
+
       markDirty();
     }).catch(function (err) {
       video.classList.remove("sm-uploading");
@@ -368,6 +434,23 @@
       var origSnapshot = existing ? existing.original : wasSrc;
       patches.set(path, { element_type: "image", new_content: url, original: origSnapshot });
       pushHistory({ element_path: path, element_type: "image", prev: wasSrc, next: url, origSnapshot: origSnapshot });
+
+      // Sync any other images on the page pointing at the same original src
+      // (matches desktop/mobile duplicates of the same logo, avatar, etc.)
+      if (wasSrc && attr === "src") {
+        findAttrTwins(el, "src", wasSrc).forEach(function (t) {
+          try {
+            var tPath = elementPath(t);
+            var tOrigAttr = t.getAttribute("src");
+            t.setAttribute("src", url);
+            var tExisting = patches.get(tPath);
+            var tOrigSnap = tExisting ? tExisting.original : tOrigAttr;
+            patches.set(tPath, { element_type: "image", new_content: url, original: tOrigSnap });
+            pushHistory({ element_path: tPath, element_type: "image", prev: tOrigAttr, next: url, origSnapshot: tOrigSnap });
+          } catch (e) {}
+        });
+      }
+
       markDirty();
     }).catch(function (err) {
       el.classList.remove("sm-uploading");
@@ -434,9 +517,32 @@
     input.click();
   }
 
-  function uploadMedia(file) {
+  // Upload strategy:
+  // - Files <= 3 MB: base64 through /api/admin/upload-image (simple, one hop).
+  // - Files >  3 MB: client-side direct upload to Vercel Blob via
+  //   /api/admin/upload-token. This bypasses the 4.5 MB serverless
+  //   body limit and supports up to 500 MB.
+  var _blobClientPromise = null;
+  function loadBlobClient() {
+    if (!_blobClientPromise) {
+      _blobClientPromise = import("https://esm.sh/@vercel/blob@0.27.3/client")
+        .catch(function () { return import("https://cdn.jsdelivr.net/npm/@vercel/blob@0.27.3/dist/client/index.mjs"); });
+    }
+    return _blobClientPromise;
+  }
+
+  async function uploadMediaLarge(file) {
+    var mod = await loadBlobClient();
+    var blob = await mod.upload(file.name, file, {
+      access: "public",
+      handleUploadUrl: "/api/admin/upload-token",
+      contentType: file.type,
+    });
+    return blob.url;
+  }
+
+  function uploadMediaSmall(file) {
     return new Promise(function (resolve, reject) {
-      if (file.size > 8 * 1024 * 1024) return reject(new Error("File too large (max 8 MB — videos max 4 MB)"));
       var reader = new FileReader();
       reader.onload = async function (e) {
         var b64 = String(e.target.result || "").split(",")[1];
@@ -455,6 +561,26 @@
       reader.onerror = function () { reject(new Error("Could not read file")); };
       reader.readAsDataURL(file);
     });
+  }
+
+  function uploadMedia(file) {
+    // Practical ceilings — well above what a therapist would ever want to upload.
+    var isVideo = /^video\//.test(file.type || "");
+    var maxMb = isVideo ? 500 : 50;
+    if (file.size > maxMb * 1024 * 1024) {
+      return Promise.reject(new Error("File too large (max " + maxMb + " MB)"));
+    }
+    // Anything above 3 MB goes via client-direct upload
+    if (file.size > 3 * 1024 * 1024) {
+      return uploadMediaLarge(file).catch(function (err) {
+        // If client-direct fails (e.g. Blob not configured), try the smaller
+        // base64 path — will reject cleanly with the "Blob not configured"
+        // message from the server for files that are also too big for base64.
+        if (file.size <= 4 * 1024 * 1024) return uploadMediaSmall(file);
+        throw err;
+      });
+    }
+    return uploadMediaSmall(file);
   }
 
   //---------- Load existing patches so the editor sees the current state ----------
