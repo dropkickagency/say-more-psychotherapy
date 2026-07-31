@@ -116,6 +116,16 @@
       </div>
 
       <div class="filters" id="filters">
+        <div class="filter-group" id="rangeFilters">
+          <span class="filter-group__label">Range</span>
+          <button class="filter-btn" data-range="1">24 hrs</button>
+          <button class="filter-btn" data-range="7">7 days</button>
+          <button class="filter-btn" data-range="30">30 days</button>
+          <button class="filter-btn" data-range="90">3 months</button>
+          <button class="filter-btn" data-range="180">6 months</button>
+          <button class="filter-btn" data-range="365">1 year</button>
+          <button class="filter-btn is-active" data-range="0">All</button>
+        </div>
         <div class="filter-group">
           <span class="filter-group__label">Status</span>
           <button class="filter-btn is-active" data-status="">All</button>
@@ -155,7 +165,33 @@
 
   <script src="/admin/admin.js"></script>
   <script>
-    const state = { leads: [], filter: "", sourceFilter: "", expanded: new Set() };
+    // rangeDays: 0 = all-time, otherwise leads within N days of now
+    const state = { leads: [], filter: "", sourceFilter: "", rangeDays: 0, expanded: new Set() };
+
+    function inRange(lead) {
+      if (!state.rangeDays) return true;
+      const created = new Date(lead.created_at).getTime();
+      if (!created) return true; // safety: if unparseable, don't hide
+      return created >= Date.now() - state.rangeDays * 24 * 60 * 60 * 1000;
+    }
+
+    function updateStats() {
+      const scoped = state.leads.filter(inRange);
+      document.getElementById("statLeadsTotal").textContent = scoped.length;
+      document.getElementById("statLeadsNew").textContent = scoped.filter(l => l.status === "new").length;
+      document.getElementById("statLeadsConverted").textContent = scoped.filter(l => l.status === "converted").length;
+      const hint = state.rangeDays
+        ? (state.rangeDays === 1 ? "Last 24 hrs"
+          : state.rangeDays < 90 ? `Last ${state.rangeDays} days`
+          : state.rangeDays === 90 ? "Last 3 months"
+          : state.rangeDays === 180 ? "Last 6 months"
+          : state.rangeDays === 365 ? "Last year"
+          : `Last ${state.rangeDays} days`)
+        : "All-time";
+      document.querySelectorAll(".stat__hint").forEach((el, i) => {
+        if (i === 0) el.textContent = hint;
+      });
+    }
 
     function buildSourceFilters() {
       const container = document.getElementById("sourceFilters");
@@ -182,6 +218,7 @@
     function render() {
       const body = document.getElementById("leadsBody");
       const rows = state.leads.filter(l => {
+        if (!inRange(l)) return false;
         if (state.filter && l.status !== state.filter) return false;
         if (state.sourceFilter && classifySource(l).key !== state.sourceFilter) return false;
         return true;
@@ -331,10 +368,7 @@
       try {
         const data = await AdminAPI.get("/api/admin/leads");
         state.leads = data.leads || [];
-        // Populate stat cards from the loaded list
-        document.getElementById("statLeadsTotal").textContent = state.leads.length;
-        document.getElementById("statLeadsNew").textContent = state.leads.filter(l => l.status === "new").length;
-        document.getElementById("statLeadsConverted").textContent = state.leads.filter(l => l.status === "converted").length;
+        updateStats();
         buildSourceFilters();
         render();
 
@@ -354,10 +388,22 @@
           "<tr><td colspan='8'><div class='empty'><h3>Unable to load leads</h3><p>Check that the database is configured.</p></div></td></tr>";
       }
 
-      // Status filter buttons (defined in HTML)
-      document.querySelectorAll("#filters .filter-group:first-child .filter-btn").forEach(b => {
+      // Range filter buttons
+      document.querySelectorAll("#rangeFilters .filter-btn").forEach(b => {
         b.addEventListener("click", () => {
-          document.querySelectorAll("#filters .filter-group:first-child .filter-btn").forEach(x => x.classList.remove("is-active"));
+          document.querySelectorAll("#rangeFilters .filter-btn").forEach(x => x.classList.remove("is-active"));
+          b.classList.add("is-active");
+          state.rangeDays = Number(b.dataset.range) || 0;
+          updateStats();
+          render();
+        });
+      });
+
+      // Status filter buttons — target the Status group specifically
+      // (was ':first-child', which broke once Range became the first group)
+      document.querySelectorAll("#filters .filter-group:not(#rangeFilters):not(#sourceFilters) .filter-btn").forEach(b => {
+        b.addEventListener("click", () => {
+          document.querySelectorAll("#filters .filter-group:not(#rangeFilters):not(#sourceFilters) .filter-btn").forEach(x => x.classList.remove("is-active"));
           b.classList.add("is-active");
           state.filter = b.dataset.status;
           render();
