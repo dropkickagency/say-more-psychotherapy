@@ -200,29 +200,95 @@
   }
 
   //---------- Save handled via parent postMessage ----------
-  async function saveAll(publish) {
-    if (patches.size === 0 && !publish) return { ok: true, saved: 0 };
-    var payload = { page_path: window.location.pathname, patches: [], publish: !!publish };
-    if (publish) payload.publish_all = true;
-    patches.forEach(function (p, key) {
-      payload.patches.push({
-        element_path: key,
-        element_type: p.element_type,
-        new_content: p.new_content,
-        original: p.original,
-      });
-    });
+  // Split patches into chunks that stay under Vercel's 4.5 MB serverless
+  // body cap. If a single patch (e.g. an inline base64 image URL) is
+  // itself larger than the cap, we send it alone and let the server reject
+  // it cleanly rather than blocking all other saves.
+  var MAX_BATCH_BYTES = 3 * 1024 * 1024;  // 3 MB safety margin under 4.5 MB Vercel limit
+
+  async function postBatch(patchesInBatch, publish, publishAll) {
+    var payload = {
+      page_path: window.location.pathname,
+      patches: patchesInBatch,
+      publish: !!publish,
+    };
+    if (publishAll) payload.publish_all = true;
     var res = await fetch("/api/admin/edits", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    var json = await res.json();
-    if (!res.ok) throw new Error((json && json.error) || "Save failed");
+    // Handle non-JSON error bodies (Vercel returns plain text for 413/504 etc.)
+    var text = await res.text();
+    var json = null;
+    try { json = JSON.parse(text); } catch (e) {}
+    if (!res.ok) {
+      var msg = (json && json.error) ? json.error
+              : (text && text.length < 240) ? text
+              : ("Server returned " + res.status);
+      // Friendlier hint for the 413 case
+      if (res.status === 413 || /request entity too large|413/i.test(text)) {
+        msg = "That change is too big for one save. If you swapped in a very large image (or several images at once), try saving them one at a time.";
+      }
+      throw new Error(msg);
+    }
+    return json || {};
+  }
+
+  async function saveAll(publish) {
+    if (patches.size === 0 && !publish) return { ok: true, saved: 0 };
+
+    // Flatten patches Map → array
+    var all = [];
+    patches.forEach(function (p, key) {
+      all.push({
+        element_path: key,
+        element_type: p.element_type,
+        new_content: p.new_content,
+        original: p.original,
+      });
+    });
+
+    // Group into batches by JSON size
+    var batches = [];
+    var current = [];
+    var currentBytes = 100; // rough envelope overhead
+    for (var i = 0; i < all.length; i++) {
+      var patch = all[i];
+      var bytes = JSON.stringify(patch).length + 4; // + comma/quotes overhead
+      if (bytes > MAX_BATCH_BYTES) {
+        // Single patch is too big — send it alone so the server can 413 just
+        // this patch and not the whole save.
+        if (current.length) { batches.push(current); current = []; currentBytes = 100; }
+        batches.push([patch]);
+        continue;
+      }
+      if (currentBytes + bytes > MAX_BATCH_BYTES) {
+        batches.push(current);
+        current = [];
+        currentBytes = 100;
+      }
+      current.push(patch);
+      currentBytes += bytes;
+    }
+    if (current.length) batches.push(current);
+    if (batches.length === 0) batches.push([]);  // for publish-only calls with no new patches
+
+    // Send each batch; only the LAST batch carries publish flags so that
+    // "publish all" runs once at the end after every draft is upserted.
+    var totalSaved = 0;
+    var totalPromoted = 0;
+    for (var b = 0; b < batches.length; b++) {
+      var isLast = b === batches.length - 1;
+      var r = await postBatch(batches[b], !!publish && isLast, !!publish && isLast);
+      totalSaved += r.saved || 0;
+      totalPromoted += r.promoted || 0;
+    }
+
     patches.clear();
     updateToolbar();
-    return json;
+    return { ok: true, saved: totalSaved, promoted: totalPromoted };
   }
 
   window.addEventListener("message", async function (e) {
