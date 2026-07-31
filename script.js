@@ -12,16 +12,59 @@ var __SM_EDIT_MODE__ = false;
     // admin's website editor) — random visitors adding ?edit=1 don't get UI.
     if (window.top === window.self) return;
     __SM_EDIT_MODE__ = true;
-    // Cache-bust each iframe load so we're always running the latest editor
     var s = document.createElement('script');
-    s.src = '/admin/edit-mode.js?v=' + Date.now();
+    s.src = '/admin/edit-mode.js';
     s.defer = true;
     document.head.appendChild(s);
   } catch (e) {}
 })();
 
-// (The content-patch runtime lives in /patcher.js, loaded from <head>,
-//  so patches apply on the first paint instead of flashing in after.)
+// ---- Content patches from the website editor (applied at page load) ----
+// Runs on every public page — fetches any admin-authored edits for this
+// path from /api/edits and overlays them onto the static HTML.
+// Skipped in edit mode so the editor sees the raw HTML.
+(function () {
+  if (__SM_EDIT_MODE__) return;
+  if (/^\/admin(\/|$)/.test(window.location.pathname)) return;
+
+  var applied = false;
+  function applyPatches(patches) {
+    if (applied || !Array.isArray(patches)) return;
+    applied = true;
+    patches.forEach(function (p) {
+      try {
+        var el = document.querySelector(p.element_path);
+        if (!el) return;
+        if (p.element_type === 'image') {
+          if (el.tagName === 'IMG') el.setAttribute('src', p.new_content);
+        } else if (p.element_type === 'video') {
+          if (el.tagName === 'VIDEO') {
+            // Remove <source> children so the new src wins
+            el.querySelectorAll('source').forEach(function (s) { s.remove(); });
+            el.setAttribute('src', p.new_content);
+            try { el.load(); } catch (e) {}
+          }
+        } else if (p.element_type === 'bg-image') {
+          el.style.backgroundImage = 'url("' + p.new_content + '")';
+        } else if (p.element_type === 'href') {
+          el.setAttribute('href', p.new_content);
+        } else {
+          // Safety: if the current innerHTML differs from what was captured
+          // at edit time, the HTML has drifted (a code deploy changed the
+          // surrounding markup). Skip the patch so we don't stomp on new
+          // content.
+          if (p.original && el.innerHTML.trim() !== p.original.trim()) return;
+          el.innerHTML = p.new_content;
+        }
+      } catch (e) { /* skip individual failing patch */ }
+    });
+  }
+
+  fetch('/api/edits?path=' + encodeURIComponent(window.location.pathname))
+    .then(function (r) { return r.json(); })
+    .then(function (d) { applyPatches(d && d.patches); })
+    .catch(function () { /* silent — page still works uneditied */ });
+})();
 
 // ---- Analytics beacon (fire-and-forget, sends one row per page view) ----
 // Skips admin pages and anything triggered by a Vercel prerender / build.

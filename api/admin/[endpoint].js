@@ -290,14 +290,12 @@ async function handleUploadImage(req, res) {
   const isVideo = mimeLower.startsWith("video/");
   const buffer = Buffer.from(data, "base64");
   if (buffer.length === 0) return res.status(400).json({ error: "File data was empty." });
-  // Vercel Hobby caps request bodies at 4.5 MB and base64 adds ~33% overhead.
-  // 3 MB raw → ~4 MB JSON payload — safely under the limit for both photos and videos.
-  const MAX_BYTES = 3 * 1024 * 1024;
+  const MAX_BYTES = isVideo ? 4 * 1024 * 1024 : 8 * 1024 * 1024;  // videos ≤ 4 MB (Vercel body limit); images ≤ 8 MB
   if (buffer.length > MAX_BYTES) {
     return res.status(413).json({
       error: isVideo
-        ? "Video is too large (max 3 MB). Compress it, or host on YouTube/Vimeo and paste the embed URL."
-        : "Image is too large (max 3 MB). Try a compressed / smaller version.",
+        ? "Video is too large (max 4 MB on this plan). Trim or compress it, or host it on YouTube/Vimeo and paste the embed URL later."
+        : "Image is too large (max 8 MB).",
     });
   }
 
@@ -311,39 +309,18 @@ async function handleUploadImage(req, res) {
     return res.status(200).json({ url: blob.url, size: buffer.length, contentType: mime, storage: "blob" });
   }
 
-  // Videos: keep rejecting cleanly when Blob's off — Postgres BYTEA would
-  // work in theory but delivering multi-MB video from a Node function on
-  // every visitor page load is a bad experience.
+  // Videos are too big for base64 inline fallback — reject cleanly.
   if (isVideo) {
     return res.status(501).json({
       error: "Video uploads need Vercel Blob storage. In your Vercel dashboard → Storage → connect a Blob store to this project, then redeploy.",
     });
   }
 
-  // Fallback: store the image binary in Postgres. Patches then reference
-  // /api/asset/{id} (small URL) instead of a huge base64 data URL, so
-  // saves don't run into Vercel's 4.5 MB request body cap.
-  try {
-    if (!sql) throw new Error("Database not configured");
-    await ensureSchema();
-    const rows = await sql`
-      INSERT INTO assets (mime, filename, data, size)
-      VALUES (${mime}, ${filename || null}, ${buffer}, ${buffer.length})
-      RETURNING id
-    `;
-    const id = rows[0].id;
-    return res.status(200).json({
-      url: `/api/asset/${id}`,
-      size: buffer.length,
-      contentType: mime,
-      storage: "postgres",
-    });
-  } catch (err) {
-    console.error("asset insert failed:", err);
-    return res.status(500).json({
-      error: "Couldn't store the image. Please try a smaller file, or set up Vercel Blob for larger uploads.",
-    });
-  }
+  const dataUrl = `data:${mime};base64,${data}`;
+  return res.status(200).json({
+    url: dataUrl, size: buffer.length, contentType: mime, storage: "inline",
+    warning: "Vercel Blob isn't configured, so this image is embedded inline. Enable Blob later for faster performance.",
+  });
 }
 
 // ---- Insights (aggregations from page_views) ----
@@ -471,89 +448,6 @@ async function handleInsights(req, res) {
     os: byOSRes,
     browsers: byBrowserRes,
   });
-}
-
-// ---- Migrate legacy inline data: URLs in content_patches into asset rows ----
-// Old patches (from before Postgres asset storage) stored full base64 data
-// URLs directly in new_content. A single big image inflates the /api/edits
-// response to megabytes, which times out visitors' patcher.js fetches and
-// leaves the page un-patched. This walks those patches, decodes the base64,
-// writes it to the assets table, and swaps in the short /api/asset/{id} URL.
-async function handleMigratePatches(req, res) {
-  if (!(await requireAdmin(req, res))) return;
-  if (!assertDb(res)) return;
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  await ensureSchema();
-
-  const [meta] = await sql`
-    SELECT COUNT(*)::int AS n FROM content_patches WHERE new_content LIKE 'data:%'
-  `;
-  if (meta.n === 0) {
-    return res.status(200).json({ ok: true, migrated: 0, remaining: 0, done: true, message: "Nothing to migrate." });
-  }
-
-  // Process ONE patch per invocation. A 2 MB blob takes several seconds
-  // to decode + INSERT + UPDATE, and Vercel Hobby caps function runtime
-  // at 10 seconds. Keeping it to one row per call is safe. The client
-  // loops until `done: true`.
-  const [target] = await sql`
-    SELECT id FROM content_patches
-    WHERE new_content LIKE 'data:%'
-    ORDER BY id
-    LIMIT 1
-  `;
-  if (!target) {
-    return res.status(200).json({ ok: true, migrated: 0, remaining: 0, done: true });
-  }
-
-  try {
-    const rows = await sql`
-      SELECT id, page_path, element_path, new_content
-      FROM content_patches WHERE id = ${target.id}
-    `;
-    if (!rows.length) {
-      return res.status(200).json({ ok: true, migrated: 0, remaining: meta.n - 1, done: meta.n - 1 === 0 });
-    }
-    const p = rows[0];
-    const m = String(p.new_content).match(/^data:([^;,]+);base64,(.+)$/);
-    if (!m) {
-      // Malformed data URL — clear so we don't loop on it forever
-      await sql`UPDATE content_patches SET new_content = '' WHERE id = ${p.id}`;
-      return res.status(200).json({ ok: true, migrated: 0, skipped: 1, remaining: meta.n - 1, done: meta.n - 1 === 0 });
-    }
-    const mime = m[1];
-    const buffer = Buffer.from(m[2], "base64");
-    if (buffer.length === 0) {
-      await sql`UPDATE content_patches SET new_content = '' WHERE id = ${p.id}`;
-      return res.status(200).json({ ok: true, migrated: 0, skipped: 1, remaining: meta.n - 1, done: meta.n - 1 === 0 });
-    }
-
-    const inserted = await sql`
-      INSERT INTO assets (mime, data, size)
-      VALUES (${mime}, ${buffer}, ${buffer.length})
-      RETURNING id
-    `;
-    const newUrl = `/api/asset/${inserted[0].id}`;
-
-    await sql`
-      UPDATE content_patches SET new_content = ${newUrl}, updated_at = NOW() WHERE id = ${p.id}
-    `;
-
-    return res.status(200).json({
-      ok: true,
-      migrated: 1,
-      remaining: meta.n - 1,
-      done: meta.n - 1 === 0,
-      migrated_patch: { id: p.id, page_path: p.page_path, new_url: newUrl, size: buffer.length },
-    });
-  } catch (err) {
-    console.error("migrate error on patch", target.id, err);
-    return res.status(500).json({
-      ok: false,
-      error: err && err.message ? err.message : String(err),
-      remaining: meta.n,
-    });
-  }
 }
 
 // ---- Seed insights (one-time backfill matching Vercel's historical numbers) ----
@@ -732,8 +626,6 @@ async function handleEdits(req, res) {
                     FROM content_patches
                     GROUP BY page_path
                     ORDER BY last_updated DESC`;
-    // Never cache — editor must always see the latest server state
-    res.setHeader("Cache-Control", "no-store");
     return res.status(200).json({ patches: rows });
   }
 
@@ -811,7 +703,6 @@ const ROUTES = {
   "insights":       handleInsights,
   "seed-insights":  handleSeedInsights,
   "edits":          handleEdits,
-  "migrate-patches": handleMigratePatches,
 };
 
 export default async function handler(req, res) {

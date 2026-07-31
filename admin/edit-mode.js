@@ -13,24 +13,6 @@
   var patches = new Map(); // element_path -> { element_type, new_content, original }
   var history = [];        // stack of { element_path, element_type, prev, next } — undo pops from the end
 
-  // Editor decorates every editable element with helper classes (sm-editable-text,
-  // sm-editing, sm-uploading, sm-editable-image, etc.) and toggles contenteditable
-  // on click. When a user edits a parent element, its innerHTML captures those
-  // decorations from CHILD elements too — polluting the saved patch with
-  // "sm-editable-text" classes that then get baked into the live DOM. Strip them
-  // before saving so patches contain only real content.
-  function cleanEditorMarkup(html) {
-    if (html == null) return html;
-    return String(html)
-      .replace(/\s+class="([^"]*)"/g, function (m, classes) {
-        var kept = classes.split(/\s+/).filter(function (c) {
-          return c && c.indexOf("sm-") !== 0;
-        });
-        return kept.length ? ' class="' + kept.join(" ") + '"' : "";
-      })
-      .replace(/\s+contenteditable="[^"]*"/g, "");
-  }
-
   //---------- Utils ----------
   function elementPath(el) {
     var parts = [];
@@ -65,37 +47,6 @@
   }
 
   function post(msg) { try { window.parent.postMessage(msg, "*"); } catch (e) {} }
-
-  // Find "twin" elements on the page — same tag AND same current text content
-  // as `el`. This catches desktop/mobile duplicates like the site's separate
-  // .nav__links and .nav__mobile__links copies of the same nav items, so an
-  // edit on desktop also updates the mobile drawer.
-  function findTextTwins(el, matchText) {
-    var out = [];
-    if (!el || !matchText) return out;
-    var wanted = String(matchText).trim();
-    if (!wanted) return out;
-    var candidates = document.querySelectorAll(el.tagName.toLowerCase());
-    for (var i = 0; i < candidates.length; i++) {
-      var c = candidates[i];
-      if (c === el) continue;
-      if (c.closest(".sm-edit-toolbar")) continue;
-      if ((c.innerHTML || "").trim() === wanted) out.push(c);
-    }
-    return out;
-  }
-  function findAttrTwins(el, attr, matchValue) {
-    var out = [];
-    if (!el || !matchValue) return out;
-    var candidates = document.querySelectorAll(el.tagName.toLowerCase() + "[" + attr + "]");
-    for (var i = 0; i < candidates.length; i++) {
-      var c = candidates[i];
-      if (c === el) continue;
-      if (c.closest(".sm-edit-toolbar")) continue;
-      if (c.getAttribute(attr) === matchValue) out.push(c);
-    }
-    return out;
-  }
 
   function markDirty() {
     post({ type: "sm-edit-dirty", count: patches.size, history: history.length });
@@ -218,102 +169,29 @@
   }
 
   //---------- Save handled via parent postMessage ----------
-  // Split patches into chunks that stay under Vercel's 4.5 MB serverless
-  // body cap. If a single patch (e.g. an inline base64 image URL) is
-  // itself larger than the cap, we send it alone and let the server reject
-  // it cleanly rather than blocking all other saves.
-  var MAX_BATCH_BYTES = 3 * 1024 * 1024;  // 3 MB safety margin under 4.5 MB Vercel limit
-
-  async function postBatch(patchesInBatch, publish, publishAll) {
-    var payload = {
-      page_path: window.location.pathname,
-      patches: patchesInBatch,
-      publish: !!publish,
-    };
-    if (publishAll) payload.publish_all = true;
-    var res = await fetch("/api/admin/edits", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    // Handle non-JSON error bodies (Vercel returns plain text for 413/504 etc.)
-    var text = await res.text();
-    var json = null;
-    try { json = JSON.parse(text); } catch (e) {}
-    if (!res.ok) {
-      var msg = (json && json.error) ? json.error
-              : (text && text.length < 240) ? text
-              : ("Server returned " + res.status);
-      // Friendlier hint for the 413 case
-      if (res.status === 413 || /request entity too large|413/i.test(text)) {
-        msg = "That change is too big for one save. If you swapped in a very large image (or several images at once), try saving them one at a time.";
-      }
-      throw new Error(msg);
-    }
-    return json || {};
-  }
-
   async function saveAll(publish) {
-    console.log("[sm-edit] saveAll: patches.size=" + patches.size + " publish=" + publish + " page=" + window.location.pathname);
     if (patches.size === 0 && !publish) return { ok: true, saved: 0 };
-
-    // Flatten patches Map → array
-    var all = [];
+    var payload = { page_path: window.location.pathname, patches: [], publish: !!publish };
+    if (publish) payload.publish_all = true;
     patches.forEach(function (p, key) {
-      all.push({
+      payload.patches.push({
         element_path: key,
         element_type: p.element_type,
         new_content: p.new_content,
         original: p.original,
       });
     });
-    console.log("[sm-edit] saveAll: flattened to", all.length, "patch object(s)");
-
-    // Group into batches by JSON size
-    var batches = [];
-    var current = [];
-    var currentBytes = 100; // rough envelope overhead
-    for (var i = 0; i < all.length; i++) {
-      var patch = all[i];
-      var bytes = JSON.stringify(patch).length + 4; // + comma/quotes overhead
-      if (bytes > MAX_BATCH_BYTES) {
-        // Single patch is too big — send it alone so the server can 413 just
-        // this patch and not the whole save.
-        if (current.length) { batches.push(current); current = []; currentBytes = 100; }
-        batches.push([patch]);
-        continue;
-      }
-      if (currentBytes + bytes > MAX_BATCH_BYTES) {
-        batches.push(current);
-        current = [];
-        currentBytes = 100;
-      }
-      current.push(patch);
-      currentBytes += bytes;
-    }
-    if (current.length) batches.push(current);
-    if (batches.length === 0) batches.push([]);  // for publish-only calls with no new patches
-
-    console.log("[sm-edit] saveAll: sending in", batches.length, "batch(es)");
-
-    // Send each batch; only the LAST batch carries publish flags so that
-    // "publish all" runs once at the end after every draft is upserted.
-    var totalSaved = 0;
-    var totalPromoted = 0;
-    for (var b = 0; b < batches.length; b++) {
-      var isLast = b === batches.length - 1;
-      console.log("[sm-edit] saveAll: batch " + (b + 1) + "/" + batches.length + " (" + batches[b].length + " patch(es))");
-      var r = await postBatch(batches[b], !!publish && isLast, !!publish && isLast);
-      console.log("[sm-edit] saveAll: batch " + (b + 1) + " done — saved=" + (r.saved || 0) + " promoted=" + (r.promoted || 0));
-      totalSaved += r.saved || 0;
-      totalPromoted += r.promoted || 0;
-    }
-
-    console.log("[sm-edit] saveAll: complete — total saved=" + totalSaved + " promoted=" + totalPromoted);
+    var res = await fetch("/api/admin/edits", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    var json = await res.json();
+    if (!res.ok) throw new Error((json && json.error) || "Save failed");
     patches.clear();
     updateToolbar();
-    return { ok: true, saved: totalSaved, promoted: totalPromoted };
+    return json;
   }
 
   window.addEventListener("message", async function (e) {
@@ -323,13 +201,16 @@
       console.log("[sm-edit] message received:", msg.type);
     }
 
-    // Save and Publish now do the same thing — save always publishes so
-    // changes go live immediately. The draft state was confusing; users
-    // hit Save expecting to see it on the site.
-    if (msg.type === "sm-edit-save" || msg.type === "sm-edit-publish") {
+    if (msg.type === "sm-edit-save") {
       try {
-        var r = await saveAll(true);
-        post({ type: "sm-edit-saved", saved: r.saved || 0, promoted: r.promoted || 0, published: true });
+        var r = await saveAll(false);
+        post({ type: "sm-edit-saved", saved: r.saved || 0, published: false });
+      } catch (err) { post({ type: "sm-edit-error", error: err.message }); }
+    }
+    if (msg.type === "sm-edit-publish") {
+      try {
+        var r2 = await saveAll(true);
+        post({ type: "sm-edit-saved", saved: r2.saved || 0, promoted: r2.promoted || 0, published: true });
       } catch (err) { post({ type: "sm-edit-error", error: err.message }); }
     }
     if (msg.type === "sm-edit-discard") {
@@ -383,29 +264,11 @@
       el.setAttribute("contenteditable", "false");
       el.classList.remove("sm-editing");
       if (el.innerHTML !== original) {
-        var newHtml = cleanEditorMarkup(el.innerHTML);
-        var cleanOrig = cleanEditorMarkup(original);
         var path = elementPath(el);
         var existing = patches.get(path);
-        var origSnapshot = existing ? existing.original : cleanOrig;
-        patches.set(path, { element_type: "text", new_content: newHtml, original: origSnapshot });
-        pushHistory({ element_path: path, element_type: "text", prev: original, next: newHtml, origSnapshot: origSnapshot });
-
-        // Sync mobile-twin elements (identical tag + identical current text).
-        // This handles the desktop-nav / mobile-drawer duplication.
-        var twins = findTextTwins(el, original);
-        twins.forEach(function (t) {
-          try {
-            var tPath = elementPath(t);
-            var tOrig = t.innerHTML;
-            t.innerHTML = newHtml;
-            var tExisting = patches.get(tPath);
-            var tOrigSnap = tExisting ? tExisting.original : cleanEditorMarkup(tOrig);
-            patches.set(tPath, { element_type: "text", new_content: newHtml, original: tOrigSnap });
-            pushHistory({ element_path: tPath, element_type: "text", prev: tOrig, next: newHtml, origSnapshot: tOrigSnap });
-          } catch (e) {}
-        });
-
+        var origSnapshot = existing ? existing.original : original;  // never lose the first-ever original
+        patches.set(path, { element_type: "text", new_content: el.innerHTML, original: origSnapshot });
+        pushHistory({ element_path: path, element_type: "text", prev: original, next: el.innerHTML, origSnapshot: origSnapshot });
         markDirty();
       }
       el.removeEventListener("blur", finish);
@@ -487,24 +350,6 @@
       var origSnapshot = existing ? existing.original : wasSrc;
       patches.set(path, { element_type: "video", new_content: url, original: origSnapshot });
       pushHistory({ element_path: path, element_type: "video", prev: wasSrc, next: url, origSnapshot: origSnapshot });
-
-      // Sync mobile/desktop video twins pointing at the same original src
-      if (wasSrc) {
-        findAttrTwins(video, "src", wasSrc).forEach(function (t) {
-          try {
-            var tPath = elementPath(t);
-            var tOrigAttr = t.getAttribute("src");
-            t.querySelectorAll("source").forEach(function (s) { s.remove(); });
-            t.setAttribute("src", url);
-            try { t.load(); } catch (e) {}
-            var tExisting = patches.get(tPath);
-            var tOrigSnap = tExisting ? tExisting.original : tOrigAttr;
-            patches.set(tPath, { element_type: "video", new_content: url, original: tOrigSnap });
-            pushHistory({ element_path: tPath, element_type: "video", prev: tOrigAttr, next: url, origSnapshot: tOrigSnap });
-          } catch (e) {}
-        });
-      }
-
       markDirty();
     }).catch(function (err) {
       video.classList.remove("sm-uploading");
@@ -512,48 +357,17 @@
     });
   }
 
-  // Some layouts (about page statement blocks, benefits, reels) render a
-  // decorative hatch/gradient placeholder in .img-box until the container
-  // opts in with .has-real-image. When the editor swaps in a new src, the
-  // <img> loads fine but the CSS keeps it visibility:hidden — visitors see
-  // a blank tile. Mark the wrapper so the real image shows.
-  function markContainerAsRealImage(el) {
-    try {
-      var box = el.closest && el.closest(".img-box, .therapist__portrait, .reel");
-      if (box) box.classList.add("has-real-image");
-    } catch (e) {}
-  }
-
   function replaceMedia(el, file, attr) {
     var wasSrc = el.getAttribute(attr);
     el.classList.add("sm-uploading");
     uploadMedia(file).then(function (url) {
       el.setAttribute(attr, url);
-      markContainerAsRealImage(el);
       el.classList.remove("sm-uploading");
       var path = elementPath(el);
       var existing = patches.get(path);
       var origSnapshot = existing ? existing.original : wasSrc;
       patches.set(path, { element_type: "image", new_content: url, original: origSnapshot });
       pushHistory({ element_path: path, element_type: "image", prev: wasSrc, next: url, origSnapshot: origSnapshot });
-
-      // Sync any other images on the page pointing at the same original src
-      // (matches desktop/mobile duplicates of the same logo, avatar, etc.)
-      if (wasSrc && attr === "src") {
-        findAttrTwins(el, "src", wasSrc).forEach(function (t) {
-          try {
-            var tPath = elementPath(t);
-            var tOrigAttr = t.getAttribute("src");
-            t.setAttribute("src", url);
-            markContainerAsRealImage(t);
-            var tExisting = patches.get(tPath);
-            var tOrigSnap = tExisting ? tExisting.original : tOrigAttr;
-            patches.set(tPath, { element_type: "image", new_content: url, original: tOrigSnap });
-            pushHistory({ element_path: tPath, element_type: "image", prev: tOrigAttr, next: url, origSnapshot: tOrigSnap });
-          } catch (e) {}
-        });
-      }
-
       markDirty();
     }).catch(function (err) {
       el.classList.remove("sm-uploading");
@@ -622,11 +436,7 @@
 
   function uploadMedia(file) {
     return new Promise(function (resolve, reject) {
-      var isVideo = /^video\//.test(file.type || "");
-      var MAX_MB = 3;  // matches server limit; ~3 MB raw = ~4 MB base64 JSON payload, safe under Vercel's 4.5 MB cap
-      if (file.size > MAX_MB * 1024 * 1024) {
-        return reject(new Error("File too large (max " + MAX_MB + " MB). Try a compressed version."));
-      }
+      if (file.size > 8 * 1024 * 1024) return reject(new Error("File too large (max 8 MB — videos max 4 MB)"));
       var reader = new FileReader();
       reader.onload = async function (e) {
         var b64 = String(e.target.result || "").split(",")[1];
@@ -650,23 +460,16 @@
   //---------- Load existing patches so the editor sees the current state ----------
   async function applyExistingPatches() {
     try {
-      var res = await fetch("/api/admin/edits?path=" + encodeURIComponent(window.location.pathname) + "&t=" + Date.now(), {
+      var res = await fetch("/api/admin/edits?path=" + encodeURIComponent(window.location.pathname), {
         credentials: "same-origin",
-        cache: "no-store",
       });
       var json = await res.json();
-      var list = (json && json.patches) || [];
-      console.log("[sm-edit] loaded", list.length, "existing patch(es) for", window.location.pathname);
-      list.forEach(function (p) {
+      (json.patches || []).forEach(function (p) {
         try {
           var el = document.querySelector(p.element_path);
-          if (!el) { console.warn("[sm-edit] patch target not found:", p.element_path); return; }
-          if (p.new_content == null || p.new_content === "") { console.warn("[sm-edit] patch has empty new_content, skipping", p.element_path); return; }
+          if (!el) return;
           if (p.element_type === "image") {
-            if (el.tagName === "IMG") {
-              el.setAttribute("src", p.new_content);
-              markContainerAsRealImage(el);
-            }
+            if (el.tagName === "IMG") el.setAttribute("src", p.new_content);
           } else if (p.element_type === "video") {
             if (el.tagName === "VIDEO") {
               el.querySelectorAll("source").forEach(function (s) { s.remove(); });
@@ -678,9 +481,9 @@
           } else {
             el.innerHTML = p.new_content;
           }
-        } catch (e) { console.warn("[sm-edit] apply-existing failed for", p.element_path, e && e.message); }
+        } catch (e) {}
       });
-    } catch (e) { console.warn("[sm-edit] applyExistingPatches fetch failed:", e && e.message); }
+    } catch (e) { /* silent */ }
   }
 
   //---------- Prevent navigation while editing ----------
