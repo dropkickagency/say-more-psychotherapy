@@ -202,11 +202,31 @@
       });
     }
 
+    // Silently migrate legacy inline data: URLs → asset URLs.
+    // Called on every editor load. The endpoint is idempotent and
+    // no-op if there's nothing to migrate. Runs in batches so we
+    // don't hit a timeout on very large legacy payloads.
+    async function migrateLegacyPatches() {
+      for (let i = 0; i < 20; i++) {
+        try {
+          const r = await AdminAPI.post("/api/admin/migrate-patches", {});
+          if (!r || !r.scanned_total || r.scanned_total === 0) return;
+          if (r.migrated === 0 && r.skipped === 0) return;
+          // Keep going until nothing more to do
+          if (r.scanned_this_run < 200) return;
+        } catch (err) {
+          console.warn("migrate-patches error:", err && err.message);
+          return;
+        }
+      }
+    }
+
     (async () => {
       if (!(await requireSession())) return;
       renderPageList();
       bindTopBarActions();
       bindMessages();
+      migrateLegacyPatches();  // fire-and-forget in background
     })();
   </script>
 </body>
