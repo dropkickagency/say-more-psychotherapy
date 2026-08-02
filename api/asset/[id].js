@@ -1,67 +1,73 @@
 // Serves an asset stored in the Postgres `assets` table.
 // URL: /api/asset/{id}
 //
+// Runs on the Vercel Edge Runtime specifically because the Node runtime's
+// res.end / res.write / res.send on this project keep JSON-stringifying
+// Buffer bodies (Content-Type says image/webp but the body is
+// `{"type":"Buffer","data":[…]}`). The Edge runtime uses the standard
+// Web Fetch `Response` API, which returns a Uint8Array body verbatim
+// with the headers we set — no wrapper interference.
+//
 // Long, immutable cache: each asset has a permanent unique id, so once
 // generated it never changes. Browsers + Vercel's edge cache can hold
 // on to it indefinitely.
 
-import { sql, ensureSchema } from "../../lib/db.js";
+import { neon } from "@neondatabase/serverless";
 
-export default async function handler(req, res) {
+export const config = { runtime: "edge" };
+
+const url =
+  process.env.POSTGRES_URL ||
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_URL_NON_POOLING;
+const sql = url ? neon(url) : null;
+
+// Normalise whatever Neon's HTTP driver hands us for a BYTEA column
+// into a Uint8Array. Handles real Buffers, Uint8Arrays, the JSON-shape
+// {type:"Buffer", data:[…]}, plain int arrays, and psql hex strings.
+function toBytes(raw) {
+  if (raw instanceof Uint8Array) return raw;
+  if (raw && Array.isArray(raw.data)) return new Uint8Array(raw.data);
+  if (Array.isArray(raw)) return new Uint8Array(raw);
+  if (typeof raw === "string") {
+    const hex = raw.startsWith("\\x") ? raw.slice(2) : raw;
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+    }
+    return bytes;
+  }
+  // Fallback — best-effort byte view
+  return new Uint8Array(raw);
+}
+
+export default async function handler(req) {
   try {
-    if (!sql) return res.status(503).end();
-    const id = req.query && req.query.id;
-    if (!id || !/^\d+$/.test(String(id))) return res.status(400).end();
+    if (!sql) return new Response("Database not configured", { status: 503 });
+    const urlObj = new URL(req.url);
+    // Vercel edge dynamic routes: the [id] segment is the last path segment.
+    const parts = urlObj.pathname.split("/").filter(Boolean);
+    const id = parts[parts.length - 1];
+    if (!id || !/^\d+$/.test(id)) {
+      return new Response("Bad id", { status: 400 });
+    }
 
-    await ensureSchema();
     const rows = await sql`SELECT mime, data FROM assets WHERE id = ${id} LIMIT 1`;
-    if (!rows.length) return res.status(404).end();
+    if (!rows.length) return new Response("Not found", { status: 404 });
 
     const row = rows[0];
     const mime = row.mime || "application/octet-stream";
-    // Neon's HTTP driver returns BYTEA in several possible shapes depending
-    // on version + environment:
-    //   - a real Node Buffer                        (best case)
-    //   - a Uint8Array                              (some builds)
-    //   - the JSON-serialised form {type:"Buffer", data:[...]}  <-- current issue
-    //   - a hex string like "\x89504e470d0a…"       (default psql wire format)
-    // All four must be normalised to a real Buffer before res.end(),
-    // otherwise Node stringifies the object and the browser gets JSON
-    // instead of image bytes.
-    // Force a canonical fresh Node Buffer via base64 round-trip. Any
-    // exotic shape Neon returns (Uint8Array, wrapped Buffer, etc.) gets
-    // normalised. Prevents Vercel's response wrapper from JSON-stringifying.
-    const raw = row.data;
-    let b64;
-    if (Buffer.isBuffer(raw) || raw instanceof Uint8Array) {
-      b64 = Buffer.from(raw).toString("base64");
-    } else if (raw && Array.isArray(raw.data)) {
-      b64 = Buffer.from(raw.data).toString("base64");
-    } else if (typeof raw === "string") {
-      const hex = raw.startsWith("\\x") ? raw.slice(2) : raw;
-      b64 = Buffer.from(hex, "hex").toString("base64");
-    } else {
-      b64 = Buffer.from(raw).toString("base64");
-    }
-    const buf = Buffer.from(b64, "base64");
+    const bytes = toBytes(row.data);
 
-    res.setHeader("Content-Type", mime);
-    res.setHeader("Content-Length", buf.length);
-    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-    res.statusCode = 200;
-    // @vercel/node's res.send preserves Buffers as-is; res.end has been
-    // observed to JSON-stringify on this runtime. Prefer send when
-    // available, fall back to explicit stream pipe (never triggers the
-    // wrapper's auto-serialiser).
-    if (typeof res.send === "function") {
-      res.send(buf);
-      return;
-    }
-    const { Readable } = await import("node:stream");
-    Readable.from([buf]).pipe(res);
-    return;
+    return new Response(bytes, {
+      status: 200,
+      headers: {
+        "Content-Type": mime,
+        "Content-Length": String(bytes.byteLength),
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
   } catch (err) {
-    console.error("asset serve error:", err);
-    return res.status(500).end();
+    return new Response("asset error: " + (err && err.message ? err.message : String(err)), { status: 500 });
   }
 }
