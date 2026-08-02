@@ -62,7 +62,15 @@ var __SM_EDIT_MODE__ = false;
         if (p.element_type === 'insert-after' || p.element_type === 'insert-before') {
           var ref = document.querySelector(insertSelector(p.element_path));
           if (!ref) return;
-          ref.insertAdjacentHTML(p.element_type === 'insert-before' ? 'beforebegin' : 'afterend', p.new_content || '');
+          var before = p.element_type === 'insert-before';
+          ref.insertAdjacentHTML(before ? 'beforebegin' : 'afterend', p.new_content || '');
+          // Mark the newly inserted section as "shown" so the site's
+          // scroll-in animation (which starts section > .wrap children
+          // at opacity:0 until .is-shown is applied) doesn't leave the
+          // whole thing invisible. The IntersectionObserver that adds
+          // .is-shown to native sections won't pick these up mid-run.
+          var newEl = before ? ref.previousElementSibling : ref.nextElementSibling;
+          if (newEl && newEl.tagName === 'SECTION') newEl.classList.add('is-shown');
           return;
         }
         var el = document.querySelector(p.element_path);

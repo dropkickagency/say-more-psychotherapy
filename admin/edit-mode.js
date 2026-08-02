@@ -474,7 +474,12 @@
             var sel = String(p.element_path || "").split("||")[0].trim();
             var ref = document.querySelector(sel);
             if (!ref) return;
-            ref.insertAdjacentHTML(p.element_type === "insert-before" ? "beforebegin" : "afterend", p.new_content || "");
+            var before = p.element_type === "insert-before";
+            ref.insertAdjacentHTML(before ? "beforebegin" : "afterend", p.new_content || "");
+            // Mark inserted section as "shown" so scroll-in animation
+            // doesn't leave it at opacity:0 (see script.js note).
+            var newEl = before ? ref.previousElementSibling : ref.nextElementSibling;
+            if (newEl && newEl.tagName === "SECTION") newEl.classList.add("is-shown");
             return;
           }
           var el = document.querySelector(p.element_path);
