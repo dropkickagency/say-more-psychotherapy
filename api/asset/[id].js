@@ -19,8 +19,31 @@ export default async function handler(req, res) {
 
     const row = rows[0];
     const mime = row.mime || "application/octet-stream";
-    // The neon driver returns BYTEA as a Buffer already in Node.js — good.
-    const buf = row.data && row.data.length !== undefined ? row.data : Buffer.from(row.data);
+    // Neon's HTTP driver returns BYTEA in several possible shapes depending
+    // on version + environment:
+    //   - a real Node Buffer                        (best case)
+    //   - a Uint8Array                              (some builds)
+    //   - the JSON-serialised form {type:"Buffer", data:[...]}  <-- current issue
+    //   - a hex string like "\x89504e470d0a…"       (default psql wire format)
+    // All four must be normalised to a real Buffer before res.end(),
+    // otherwise Node stringifies the object and the browser gets JSON
+    // instead of image bytes.
+    const raw = row.data;
+    let buf;
+    if (Buffer.isBuffer(raw)) {
+      buf = raw;
+    } else if (raw instanceof Uint8Array) {
+      buf = Buffer.from(raw);
+    } else if (raw && Array.isArray(raw.data) && raw.type === "Buffer") {
+      buf = Buffer.from(raw.data);
+    } else if (Array.isArray(raw)) {
+      buf = Buffer.from(raw);
+    } else if (typeof raw === "string") {
+      const hex = raw.startsWith("\\x") ? raw.slice(2) : raw;
+      buf = Buffer.from(hex, "hex");
+    } else {
+      buf = Buffer.from(raw);
+    }
 
     res.setHeader("Content-Type", mime);
     res.setHeader("Content-Length", buf.length);
