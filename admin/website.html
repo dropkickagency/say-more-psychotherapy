@@ -685,9 +685,12 @@
           const cat = LIBRARY.library[currentCategory];
           const variant = cat.variants.find(v => v.id === variantId);
           if (!variant || !sectionPickerCtx) return;
+          // Snapshot ctx locally — closeSectionModal() nulls
+          // sectionPickerCtx and we still need staticMode for the flash.
+          const ctx = sectionPickerCtx;
           try {
             btn.disabled = true;
-            if (sectionPickerCtx.staticMode) {
+            if (ctx.staticMode) {
               // Static page — server-render the section, then save as a
               // DRAFT content patch on the anchor. Doesn't go live until
               // the user clicks the Publish button.
@@ -697,7 +700,7 @@
                 content: variant.defaultContent || {},
               });
               const uniq = "ins-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
-              const insertType = sectionPickerCtx.position === "before" ? "insert-before" : "insert-after";
+              const insertType = ctx.position === "before" ? "insert-before" : "insert-after";
               await AdminAPI.post("/api/admin/edits", {
                 page_path: state.activePath,
                 // publish:false + publish_all omitted → the patch is
@@ -705,23 +708,23 @@
                 // the live site after the user hits Publish.
                 publish: false,
                 patches: [{
-                  element_path: sectionPickerCtx.anchor + " || " + uniq,
+                  element_path: ctx.anchor + " || " + uniq,
                   element_type: insertType,
                   new_content: rendered.html,
                 }],
               });
             } else {
               // Dynamic page — mutate sections JSONB via /api/admin/sections
-              await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(sectionPickerCtx.slug), {
+              await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(ctx.slug), {
                 action: "insert",
-                index: sectionPickerCtx.index,
+                index: ctx.index,
                 section: { type: currentCategory, variant: variantId, content: variant.defaultContent || {} },
               });
             }
             closeSectionModal();
             reloadIframe();
             flashStatus(
-              sectionPickerCtx.staticMode
+              ctx.staticMode
                 ? "Section added as a draft — click Publish to make it live"
                 : "Section added",
               "good"
