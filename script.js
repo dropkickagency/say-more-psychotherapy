@@ -124,13 +124,29 @@ var __SM_EDIT_MODE__ = false;
   // <head> failsafe timeout — whichever fires first.
   function reveal() {
     try { document.documentElement.classList.remove('sm-loading'); } catch (e) {}
+    try { if (typeof window.__SM_REVEAL__ === 'function') window.__SM_REVEAL__(); } catch (e) {}
   }
 
-  fetch('/api/edits?path=' + encodeURIComponent(window.location.pathname))
-    .then(function (r) { return r.json(); })
-    .then(function (d) { applyPatches(d && d.patches); })
-    .catch(function () { /* silent — page still works uneditied */ })
-    .then(reveal);
+  // Use the fetch promise the head-inline snippet already kicked off so
+  // the request is in flight while HTML parses — cuts flash by
+  // hundreds of ms. Fall back to a fresh fetch if the head snippet
+  // didn't run (e.g. the page was opened in the editor iframe with ?edit=1).
+  var patchesPromise = window.__SM_PATCHES_PROMISE__ || (
+    fetch('/api/edits?path=' + encodeURIComponent(window.location.pathname), { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return (d && d.patches) || []; })
+      .catch(function () { return []; })
+  );
+
+  function applyWhenReady(patches) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { applyPatches(patches); reveal(); });
+    } else {
+      applyPatches(patches);
+      reveal();
+    }
+  }
+  patchesPromise.then(applyWhenReady, function () { reveal(); });
 })();
 
 // ---- Nav rebuilder -----------------------------------------------------
