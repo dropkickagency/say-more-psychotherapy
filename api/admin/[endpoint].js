@@ -619,7 +619,7 @@ async function handleEdits(req, res) {
   if (req.method === "GET") {
     const path = req.query && req.query.path;
     const rows = path
-      ? await sql`SELECT * FROM content_patches WHERE page_path = ${path} ORDER BY updated_at DESC`
+      ? await sql`SELECT * FROM content_patches WHERE page_path = ${path} ORDER BY created_at ASC, id ASC`
       : await sql`SELECT page_path,
                           COUNT(*)::int AS n,
                           COUNT(*) FILTER (WHERE published = FALSE)::int AS draft_n,

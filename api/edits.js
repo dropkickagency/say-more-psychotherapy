@@ -12,10 +12,16 @@ export default async function handler(req, res) {
 
     await ensureSchema();
 
+    // Order by created_at ASC so insert-after / insert-before patches
+    // apply in the same order they were authored — later patches were
+    // captured against the DOM state that earlier inserts already
+    // produced, so their nth-of-type anchors need earlier inserts to
+    // have already shifted the DOM.
     const rows = await sql`
       SELECT element_path, element_type, new_content, original
       FROM content_patches
       WHERE page_path = ${path} AND published = TRUE
+      ORDER BY created_at ASC, id ASC
     `;
 
     // No edge cache — Publish should show up on the site immediately.

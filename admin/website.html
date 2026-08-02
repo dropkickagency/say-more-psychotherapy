@@ -81,16 +81,11 @@
             <div class="we-field__hint">Auto-generated from the title — you can override it.</div>
           </div>
           <div class="we-field">
-            <label for="np_meta_desc">Meta description <span class="we-field__optional">(SEO)</span></label>
-            <textarea id="np_meta_desc" rows="2" maxlength="200" placeholder="One or two sentences shown in Google results and social previews."></textarea>
-            <div class="we-field__hint">Aim for ~140 characters. Left blank falls back to a site default.</div>
-          </div>
-
-          <div class="we-field">
             <label>
               <input type="checkbox" id="np_add_to_nav" checked />
               Add to the site's nav menu
             </label>
+            <div class="we-field__hint">You can add meta title, description, and other SEO settings from the Settings button once the page is created.</div>
           </div>
 
           <div class="we-field">
@@ -513,7 +508,6 @@
     async function openNewPageModal() {
       $("np_title").value = "";
       $("np_slug").value = "";
-      $("np_meta_desc").value = "";
       $("np_add_to_nav").checked = true;
       $("np_error").classList.add("hidden");
       await loadLibrary();
@@ -543,7 +537,6 @@
       $("np_createBtn").addEventListener("click", async () => {
         const title = $("np_title").value.trim();
         const slug = slugify($("np_slug").value || title);
-        const meta_description = $("np_meta_desc").value.trim();
         const addToNav = $("np_add_to_nav").checked;
         const errEl = $("np_error");
         errEl.classList.add("hidden");
@@ -555,7 +548,6 @@
           const res = await AdminAPI.post("/api/admin/pages", {
             title, slug, layout: state.layout,
             nav_label: addToNav ? title : null,
-            meta_description: meta_description || null,
           });
           closeNewPageModal();
           await loadDynamicPages();
