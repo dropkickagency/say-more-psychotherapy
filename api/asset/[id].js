@@ -28,55 +28,30 @@ export default async function handler(req, res) {
     // All four must be normalised to a real Buffer before res.end(),
     // otherwise Node stringifies the object and the browser gets JSON
     // instead of image bytes.
-    // TEMP DEBUG — echo shape info as JSON when ?debug=1
-    if (req.query && req.query.debug === "1") {
-      const raw = row.data;
-      const info = {
-        mime: row.mime,
-        typeof: typeof raw,
-        isBuffer: Buffer.isBuffer(raw),
-        isUint8: raw instanceof Uint8Array,
-        isArray: Array.isArray(raw),
-        constructorName: raw && raw.constructor && raw.constructor.name,
-        keys: raw && typeof raw === "object" ? Object.keys(raw).slice(0, 5) : null,
-        hasDataProp: raw && "data" in raw,
-        dataIsArray: raw && Array.isArray(raw.data),
-        dataLen: raw && raw.data ? raw.data.length : null,
-        firstBytes: raw && Array.isArray(raw.data) ? raw.data.slice(0, 8) : (typeof raw === "string" ? raw.slice(0, 16) : null),
-      };
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(200).json(info);
-    }
-
+    // Force a canonical fresh Node Buffer via base64 round-trip. Any
+    // exotic shape Neon returns (Uint8Array, wrapped Buffer, etc.) gets
+    // normalised. Prevents Vercel's response wrapper from JSON-stringifying.
     const raw = row.data;
-    let buf;
-    let shape;
-    if (Buffer.isBuffer(raw)) {
-      buf = raw; shape = "buffer";
-    } else if (raw instanceof Uint8Array) {
-      buf = Buffer.from(raw); shape = "uint8";
+    let b64;
+    if (Buffer.isBuffer(raw) || raw instanceof Uint8Array) {
+      b64 = Buffer.from(raw).toString("base64");
     } else if (raw && Array.isArray(raw.data)) {
-      // Handles the JSON-serialised Buffer form regardless of whether
-      // raw.type === "Buffer" is present.
-      buf = Buffer.from(raw.data); shape = "obj.data[]";
-    } else if (raw && raw.data instanceof Uint8Array) {
-      buf = Buffer.from(raw.data); shape = "obj.data.u8";
-    } else if (Array.isArray(raw)) {
-      buf = Buffer.from(raw); shape = "array";
+      b64 = Buffer.from(raw.data).toString("base64");
     } else if (typeof raw === "string") {
       const hex = raw.startsWith("\\x") ? raw.slice(2) : raw;
-      buf = Buffer.from(hex, "hex"); shape = "hexstr";
-    } else if (raw && typeof raw === "object" && raw.constructor && raw.constructor.name) {
-      buf = Buffer.from(raw); shape = "obj:" + raw.constructor.name;
+      b64 = Buffer.from(hex, "hex").toString("base64");
     } else {
-      buf = Buffer.from(String(raw)); shape = "fallback";
+      b64 = Buffer.from(raw).toString("base64");
     }
-    res.setHeader("X-Sm-Shape", shape);
+    const buf = Buffer.from(b64, "base64");
 
     res.setHeader("Content-Type", mime);
     res.setHeader("Content-Length", buf.length);
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-    return res.status(200).end(buf);
+    res.statusCode = 200;
+    res.write(buf);
+    res.end();
+    return;
   } catch (err) {
     console.error("asset serve error:", err);
     return res.status(500).end();
