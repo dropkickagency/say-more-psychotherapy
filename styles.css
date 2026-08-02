@@ -20,6 +20,15 @@
   --color-cocoa:    #745236;
   --color-espresso: #5C4030;
 
+  /* Aliases used by dynamic-page section renderers in lib/render-page.js.
+     Kept as vars so a brand refresh only needs to touch this block. */
+  --color-brand:        var(--color-walnut);   /* #9B7045 */
+  --color-brand-light:  #FBEEEA;
+  --color-brand-dark:   var(--color-espresso); /* #5C4030 */
+  --color-ink:          var(--color-body);     /* #745236 */
+  --color-border:       var(--color-line);     /* #E8E4DA */
+  --color-border-strong:#D9D2C2;
+
   --font-display: 'Manrope', system-ui, -apple-system, sans-serif;
   --font-body:    'Manrope', system-ui, -apple-system, sans-serif;
   --font-eyebrow: 'Manrope', system-ui, sans-serif;

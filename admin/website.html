@@ -688,8 +688,9 @@
           try {
             btn.disabled = true;
             if (sectionPickerCtx.staticMode) {
-              // Static page — server-render the section, then save as an
-              // insert-after / insert-before content patch on the anchor.
+              // Static page — server-render the section, then save as a
+              // DRAFT content patch on the anchor. Doesn't go live until
+              // the user clicks the Publish button.
               const rendered = await AdminAPI.post("/api/admin/render-section", {
                 type: currentCategory,
                 variant: variantId,
@@ -699,8 +700,10 @@
               const insertType = sectionPickerCtx.position === "before" ? "insert-before" : "insert-after";
               await AdminAPI.post("/api/admin/edits", {
                 page_path: state.activePath,
-                publish: true,
-                publish_all: true,
+                // publish:false + publish_all omitted → the patch is
+                // saved with published=false and only becomes visible on
+                // the live site after the user hits Publish.
+                publish: false,
                 patches: [{
                   element_path: sectionPickerCtx.anchor + " || " + uniq,
                   element_type: insertType,
@@ -717,7 +720,12 @@
             }
             closeSectionModal();
             reloadIframe();
-            flashStatus("Section added", "good");
+            flashStatus(
+              sectionPickerCtx.staticMode
+                ? "Section added as a draft — click Publish to make it live"
+                : "Section added",
+              "good"
+            );
           } catch (err) {
             btn.disabled = false;
             alert("Couldn't add section: " + err.message);
