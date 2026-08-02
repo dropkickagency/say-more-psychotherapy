@@ -10,7 +10,7 @@ import {
   requireAdmin,
 } from "../../lib/auth.js";
 import { put } from "@vercel/blob";
-import { LAYOUTS } from "../../lib/render-page.js";
+import { LAYOUTS, SECTION_LIBRARY } from "../../lib/render-page.js";
 
 // Needed by the upload-image handler; applies to all endpoints handled
 // here — every other endpoint's body is small JSON so a larger limit
@@ -720,17 +720,54 @@ async function handlePages(req, res) {
   await ensureSchema();
 
   const method = req.method || "GET";
+  const q = req.query || {};
+  const view = String(q.view || "").toLowerCase();
+
+  // ---- Recently deleted tray ---------------------------------------
+  if (method === "GET" && view === "trash") {
+    const rows = await sql`
+      SELECT id, slug, title, nav_label, deleted_at
+      FROM pages
+      WHERE deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC
+    `;
+    return res.status(200).json({ pages: rows });
+  }
+
+  // ---- Restore a soft-deleted page --------------------------------
+  if (method === "POST" && String(q.action || "") === "restore") {
+    const slug = normaliseSlug(q.slug || parseBody(req).slug || "");
+    if (!slug) return res.status(400).json({ error: "Slug required." });
+    // Fail if a live page already claimed the slug while it was in the trash
+    const [live] = await sql`SELECT id FROM pages WHERE slug = ${slug} AND deleted_at IS NULL LIMIT 1`;
+    if (live) return res.status(409).json({ error: `A live page at "/${slug}" already exists — restore blocked to avoid overwriting it.` });
+    const [row] = await sql`
+      UPDATE pages SET deleted_at = NULL, updated_at = NOW()
+      WHERE slug = ${slug} AND deleted_at IS NOT NULL
+      RETURNING id, slug, title, nav_label, nav_order, published
+    `;
+    if (!row) return res.status(404).json({ error: "Page not in the trash." });
+    return res.status(200).json({ ok: true, page: row });
+  }
+
+  // ---- Permanently purge a soft-deleted page ----------------------
+  if (method === "DELETE" && String(q.hard || "") === "1") {
+    const slug = normaliseSlug(q.slug || "");
+    if (!slug) return res.status(400).json({ error: "Slug required." });
+    const r = await sql`DELETE FROM pages WHERE slug = ${slug} AND deleted_at IS NOT NULL`;
+    return res.status(200).json({ ok: true, purged: (r && r.count) || 0 });
+  }
 
   if (method === "GET") {
-    const slug = req.query && req.query.slug ? normaliseSlug(req.query.slug) : "";
+    const slug = q.slug ? normaliseSlug(q.slug) : "";
     if (slug) {
-      const [row] = await sql`SELECT * FROM pages WHERE slug = ${slug} LIMIT 1`;
+      const [row] = await sql`SELECT * FROM pages WHERE slug = ${slug} AND deleted_at IS NULL LIMIT 1`;
       if (!row) return res.status(404).json({ error: "Page not found." });
       return res.status(200).json({ page: row });
     }
     const rows = await sql`
       SELECT id, slug, title, nav_label, nav_order, published, updated_at, created_at
-      FROM pages ORDER BY nav_order ASC, id ASC
+      FROM pages WHERE deleted_at IS NULL ORDER BY nav_order ASC, id ASC
     `;
     return res.status(200).json({ pages: rows });
   }
@@ -796,13 +833,80 @@ async function handlePages(req, res) {
   }
 
   if (method === "DELETE") {
-    const slug = normaliseSlug((req.query && req.query.slug) || "");
+    const slug = normaliseSlug(q.slug || "");
     if (!slug) return res.status(400).json({ error: "Slug required." });
-    const r = await sql`DELETE FROM pages WHERE slug = ${slug}`;
+    // Soft delete — moves to the "Recently deleted" tray for 30 days.
+    const r = await sql`
+      UPDATE pages SET deleted_at = NOW(), updated_at = NOW()
+      WHERE slug = ${slug} AND deleted_at IS NULL
+    `;
     return res.status(200).json({ ok: true, deleted: (r && r.count) || 0 });
   }
 
   return res.status(405).json({ error: "Method not allowed." });
+}
+
+// ---- Sections API (Phase 2 & 3) --------------------------------------
+// Read / mutate the sections array on a dynamic page. Used by the
+// section-library picker (insert), the section-toolbar (up / down /
+// duplicate / delete), and any bulk reorder in the future.
+async function handleSections(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (!assertDb(res)) return;
+  await ensureSchema();
+
+  const q = req.query || {};
+  const slug = normaliseSlug(q.slug || (parseBody(req).slug) || "");
+  if (!slug) return res.status(400).json({ error: "Slug required." });
+
+  const [page] = await sql`SELECT id, slug, sections FROM pages WHERE slug = ${slug} AND deleted_at IS NULL LIMIT 1`;
+  if (!page) return res.status(404).json({ error: "Page not found." });
+  const sections = Array.isArray(page.sections) ? page.sections.slice() : [];
+
+  if (req.method === "GET") {
+    return res.status(200).json({ slug, sections });
+  }
+
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
+
+  const body = parseBody(req);
+  const action = String(body.action || "").toLowerCase();
+  const idx = Number.isFinite(body.index) ? Math.max(0, Math.min(sections.length, body.index)) : sections.length;
+
+  if (action === "insert") {
+    // { action: "insert", index: N, section: {type, variant, content} }
+    if (!body.section || !body.section.type) return res.status(400).json({ error: "section.type required" });
+    sections.splice(idx, 0, body.section);
+  } else if (action === "move") {
+    // { action: "move", from: A, to: B }
+    const from = Number(body.from);
+    const to = Number(body.to);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || from >= sections.length) {
+      return res.status(400).json({ error: "invalid move indexes" });
+    }
+    const boundedTo = Math.max(0, Math.min(sections.length - 1, to));
+    const [item] = sections.splice(from, 1);
+    sections.splice(boundedTo, 0, item);
+  } else if (action === "duplicate") {
+    const from = Number(body.index);
+    if (!Number.isFinite(from) || from < 0 || from >= sections.length) return res.status(400).json({ error: "invalid index" });
+    const copy = JSON.parse(JSON.stringify(sections[from]));
+    sections.splice(from + 1, 0, copy);
+  } else if (action === "delete") {
+    const from = Number(body.index);
+    if (!Number.isFinite(from) || from < 0 || from >= sections.length) return res.status(400).json({ error: "invalid index" });
+    sections.splice(from, 1);
+  } else if (action === "replace") {
+    // Bulk replace (used for content edits saved via section renderer)
+    if (!Array.isArray(body.sections)) return res.status(400).json({ error: "sections array required" });
+    sections.length = 0;
+    body.sections.forEach(s => sections.push(s));
+  } else {
+    return res.status(400).json({ error: `Unknown action: ${action}` });
+  }
+
+  await sql`UPDATE pages SET sections = ${JSON.stringify(sections)}::jsonb, updated_at = NOW() WHERE id = ${page.id}`;
+  return res.status(200).json({ ok: true, sections });
 }
 
 // =============================================================
@@ -820,6 +924,13 @@ const ROUTES = {
   "seed-insights":  handleSeedInsights,
   "edits":          handleEdits,
   "pages":          handlePages,
+  "sections":       handleSections,
+  "section-library": async function(req, res) {
+    if (!(await requireAdmin(req, res))) return;
+    // Also expose the layout starters so the modal picker can render both.
+    const layouts = Object.entries(LAYOUTS).map(([key, l]) => ({ key, label: l.label, description: l.description, sections: l.sections }));
+    return res.status(200).json({ library: SECTION_LIBRARY, layouts });
+  },
 };
 
 export default async function handler(req, res) {

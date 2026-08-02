@@ -495,6 +495,59 @@
     document.body.addEventListener("submit", function (e) { e.preventDefault(); }, true);
   }
 
+  //---------- Section-level controls (dynamic pages only) ----------
+  // Server-side renderer wraps every section in
+  //   <div class="sm-section" data-section-index="N">…</div>
+  // and sets window.__SM_DYNAMIC_PAGE__ = true. Only under those flags
+  // do we show the "+" inserters and the hover toolbar.
+  function decorateSections() {
+    if (!window.__SM_DYNAMIC_PAGE__) return;
+    var sections = Array.from(document.querySelectorAll("main > .sm-section, main .sm-section"));
+    // Hover toolbar per section
+    sections.forEach(function (sec) {
+      if (sec.querySelector(":scope > .sm-section-toolbar")) return;
+      var idx = Number(sec.getAttribute("data-section-index"));
+      var last = idx === sections.length - 1;
+      var first = idx === 0;
+      var bar = document.createElement("div");
+      bar.className = "sm-section-toolbar";
+      bar.innerHTML =
+        (first ? '' : '<button type="button" data-a="up"        title="Move up">↑</button>') +
+        (last  ? '' : '<button type="button" data-a="down"      title="Move down">↓</button>') +
+                     '<button type="button" data-a="duplicate" title="Duplicate">⧉</button>' +
+                     '<button type="button" data-a="delete" class="is-danger" title="Delete section">✕</button>';
+      bar.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var action = b.dataset.a;
+          if (action === "delete" && !confirm("Delete this section?")) return;
+          post({ type: "sm-section-action", action: action, index: idx });
+        });
+      });
+      sec.appendChild(bar);
+    });
+    // Inserter buttons: one at the top, one after each section
+    function addInserter(refNode, insertBefore, index) {
+      if (!refNode || !refNode.parentNode) return;
+      var host = document.createElement("div");
+      host.className = "sm-section-inserter";
+      host.innerHTML = '<button type="button">+ Add section</button>';
+      host.querySelector("button").addEventListener("click", function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        post({ type: "sm-open-section-picker", index: index });
+      });
+      refNode.parentNode.insertBefore(host, insertBefore ? refNode : refNode.nextSibling);
+    }
+    var main = document.querySelector("main");
+    if (main && sections.length === 0) {
+      // Empty page — one big inserter
+      addInserter(main.firstChild || main, true, 0);
+    } else if (main) {
+      addInserter(sections[0], true, 0);          // above the first
+      sections.forEach(function (sec, i) { addInserter(sec, false, i + 1); });
+    }
+  }
+
   //---------- Boot ----------
   async function boot() {
     document.documentElement.classList.add("sm-edit-mode");
@@ -504,6 +557,7 @@
     attachImageEditors();
     attachVideoEditors();
     attachBackgroundEditors();
+    decorateSections();
     buildToolbar();
     post({ type: "sm-edit-ready" });
   }

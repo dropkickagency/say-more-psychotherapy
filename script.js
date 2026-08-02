@@ -13,7 +13,7 @@ var __SM_EDIT_MODE__ = false;
     if (window.top === window.self) return;
     __SM_EDIT_MODE__ = true;
     var s = document.createElement('script');
-    s.src = '/admin/edit-mode.js';
+    s.src = '/admin/edit-mode.js?_=' + Date.now();
     s.defer = true;
     document.head.appendChild(s);
   } catch (e) {}

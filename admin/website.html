@@ -31,6 +31,14 @@
         <ul id="pageList" class="we-page-list"><li class="loading">Loading pages…</li></ul>
       </div>
 
+      <details class="we-trash" id="trashTray">
+        <summary>
+          <span class="we-trash__label">Recently deleted</span>
+          <span id="trashCount" class="we-trash__count hidden">0</span>
+        </summary>
+        <ul id="trashList" class="we-trash__list"><li class="we-trash__empty">Nothing here.</li></ul>
+      </details>
+
       <div class="we-help">
         <h3>How it works</h3>
         <ul>
@@ -76,42 +84,7 @@
 
           <div class="we-field">
             <label>Starter layout</label>
-            <div class="we-layouts">
-              <button type="button" class="we-layout" data-layout="blank">
-                <div class="we-layout__thumb we-layout__thumb--blank"></div>
-                <div class="we-layout__meta">
-                  <strong>Blank</strong>
-                  <small>Start with a clean slate.</small>
-                </div>
-              </button>
-              <button type="button" class="we-layout is-active" data-layout="landing">
-                <div class="we-layout__thumb we-layout__thumb--landing">
-                  <span></span><span></span><span></span>
-                </div>
-                <div class="we-layout__meta">
-                  <strong>Landing</strong>
-                  <small>Hero, value prop, CTA.</small>
-                </div>
-              </button>
-              <button type="button" class="we-layout" data-layout="content">
-                <div class="we-layout__thumb we-layout__thumb--content">
-                  <span></span><span class="tall"></span><span></span>
-                </div>
-                <div class="we-layout__meta">
-                  <strong>Long content</strong>
-                  <small>Hero + long text + CTA.</small>
-                </div>
-              </button>
-              <button type="button" class="we-layout" data-layout="split">
-                <div class="we-layout__thumb we-layout__thumb--split">
-                  <span></span><span class="split"></span><span></span>
-                </div>
-                <div class="we-layout__meta">
-                  <strong>Image + text</strong>
-                  <small>Hero + image/text + CTA.</small>
-                </div>
-              </button>
-            </div>
+            <div id="np_layouts" class="we-layout-cards"><!-- rendered by JS from /api/admin/section-library --></div>
           </div>
 
           <div id="np_error" class="we-modal__error hidden"></div>
@@ -119,6 +92,25 @@
         <div class="we-modal__foot">
           <button type="button" class="btn btn--ghost btn--sm" data-close>Cancel</button>
           <button type="button" class="btn btn--sm" id="np_createBtn">Create page</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: section library picker -->
+    <div id="sectionModal" class="we-modal hidden" role="dialog" aria-modal="true" aria-labelledby="sectionModalTitle">
+      <div class="we-modal__backdrop" data-close></div>
+      <div class="we-modal__card we-modal__card--wide">
+        <div class="we-modal__head">
+          <h2 id="sectionModalTitle">Add a section</h2>
+          <button type="button" class="we-modal__close" data-close aria-label="Close">✕</button>
+        </div>
+        <div class="we-modal__body we-modal__body--split">
+          <aside class="we-catnav" id="sectionCatNav"><!-- categories --></aside>
+          <div class="we-variants" id="sectionVariants"><!-- variants --></div>
+        </div>
+        <div class="we-modal__foot">
+          <span class="we-hint">Click a section to insert it at your chosen spot.</span>
+          <button type="button" class="btn btn--ghost btn--sm" data-close>Cancel</button>
         </div>
       </div>
     </div>
@@ -340,6 +332,57 @@
       });
     }
 
+    // ---- Section library metadata (loaded once) ----
+    let LIBRARY = null;   // { library, layouts }
+    async function loadLibrary() {
+      if (LIBRARY) return LIBRARY;
+      LIBRARY = await AdminAPI.get("/api/admin/section-library");
+      return LIBRARY;
+    }
+
+    // Wireframe painter — turns a variant's `wire` blocks into a stacked SVG-ish preview.
+    function paintWire(wire) {
+      if (!Array.isArray(wire) || !wire.length) {
+        return `<div class="we-wire we-wire--empty">Blank</div>`;
+      }
+      return `<div class="we-wire">${wire.map(b => `<div class="we-wire__block we-wire__block--${b.c}" style="height: ${b.h}px;"></div>`).join("")}</div>`;
+    }
+
+    // ---- Layout picker (in New Page modal) ----
+    function renderLayoutCards() {
+      if (!LIBRARY) return;
+      const host = $("np_layouts");
+      host.innerHTML = LIBRARY.layouts.map((l, i) => {
+        // Build a wireframe from the layout's sections by looking up each
+        // section's wire in the library
+        const sectionWires = (l.sections || []).map(s => {
+          const cat = LIBRARY.library[s.type];
+          if (!cat) return null;
+          const variant = (cat.variants || []).find(v => v.id === s.variant) || cat.variants[0];
+          return variant ? { label: cat.label + " · " + variant.label, wire: variant.wire } : null;
+        }).filter(Boolean);
+        const preview = sectionWires.length
+          ? sectionWires.map(sw => paintWire(sw.wire)).join("")
+          : `<div class="we-wire we-wire--empty">Blank</div>`;
+        return `
+          <button type="button" class="we-layout-card${i === 1 ? " is-active" : ""}" data-layout="${escapeHtml(l.key)}">
+            <div class="we-layout-card__preview">${preview}</div>
+            <div class="we-layout-card__meta">
+              <strong>${escapeHtml(l.label)}</strong>
+              <small>${escapeHtml(l.description)}</small>
+            </div>
+          </button>`;
+      }).join("");
+      state.layout = LIBRARY.layouts[1] ? LIBRARY.layouts[1].key : "blank";
+      host.querySelectorAll(".we-layout-card").forEach(btn => {
+        btn.addEventListener("click", () => {
+          host.querySelectorAll(".we-layout-card").forEach(x => x.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          state.layout = btn.dataset.layout;
+        });
+      });
+    }
+
     // ---- New page modal ----
     function slugify(s) {
       return String(s || "").toLowerCase().trim()
@@ -348,15 +391,13 @@
         .replace(/^-+|-+$/g, "")
         .slice(0, 60);
     }
-    function openNewPageModal() {
+    async function openNewPageModal() {
       $("np_title").value = "";
       $("np_slug").value = "";
       $("np_add_to_nav").checked = true;
       $("np_error").classList.add("hidden");
-      state.layout = "landing";
-      document.querySelectorAll(".we-layout").forEach(el => {
-        el.classList.toggle("is-active", el.dataset.layout === state.layout);
-      });
+      await loadLibrary();
+      renderLayoutCards();
       $("newPageModal").classList.remove("hidden");
       setTimeout(() => $("np_title").focus(), 20);
     }
@@ -367,15 +408,10 @@
         el.addEventListener("click", closeNewPageModal);
       });
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && !$("newPageModal").classList.contains("hidden")) closeNewPageModal();
-      });
-      // Layout picker
-      document.querySelectorAll(".we-layout").forEach(el => {
-        el.addEventListener("click", () => {
-          document.querySelectorAll(".we-layout").forEach(x => x.classList.remove("is-active"));
-          el.classList.add("is-active");
-          state.layout = el.dataset.layout;
-        });
+        if (e.key === "Escape") {
+          if (!$("newPageModal").classList.contains("hidden")) closeNewPageModal();
+          if (!$("sectionModal").classList.contains("hidden")) closeSectionModal();
+        }
       });
       // Auto-fill slug from title until user overrides it
       let slugDirty = false;
@@ -414,6 +450,174 @@
       });
     }
 
+    // ---- Section picker modal ----
+    // Opened by postMessage {type:'sm-open-section-picker', slug, index}
+    // from edit-mode.js when the user clicks "+" between sections.
+    let sectionPickerCtx = null; // { slug, index }
+    let currentCategory = "hero";
+
+    async function openSectionPicker(ctx) {
+      sectionPickerCtx = ctx;
+      currentCategory = "hero";
+      await loadLibrary();
+      renderCategoryNav();
+      renderCategoryVariants();
+      $("sectionModal").classList.remove("hidden");
+    }
+    function closeSectionModal() { $("sectionModal").classList.add("hidden"); sectionPickerCtx = null; }
+
+    function renderCategoryNav() {
+      const nav = $("sectionCatNav");
+      nav.innerHTML = Object.entries(LIBRARY.library).map(([key, cat]) => `
+        <button type="button" class="we-catnav__btn${key === currentCategory ? " is-active" : ""}" data-cat="${escapeHtml(key)}">
+          <strong>${escapeHtml(cat.label)}</strong>
+          <small>${escapeHtml(cat.description)}</small>
+        </button>
+      `).join("");
+      nav.querySelectorAll("[data-cat]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          currentCategory = btn.dataset.cat;
+          renderCategoryNav();
+          renderCategoryVariants();
+        });
+      });
+    }
+    function renderCategoryVariants() {
+      const cat = LIBRARY.library[currentCategory];
+      if (!cat) return;
+      const host = $("sectionVariants");
+      host.innerHTML = cat.variants.map(v => `
+        <button type="button" class="we-variant-card" data-variant="${escapeHtml(v.id)}">
+          <div class="we-variant-card__preview">${paintWire(v.wire)}</div>
+          <div class="we-variant-card__meta">
+            <strong>${escapeHtml(cat.label)} — ${escapeHtml(v.label)}</strong>
+            <small>${escapeHtml(v.description)}</small>
+          </div>
+        </button>
+      `).join("");
+      host.querySelectorAll("[data-variant]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const variantId = btn.dataset.variant;
+          const cat = LIBRARY.library[currentCategory];
+          const variant = cat.variants.find(v => v.id === variantId);
+          if (!variant || !sectionPickerCtx) return;
+          try {
+            btn.disabled = true;
+            await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(sectionPickerCtx.slug), {
+              action: "insert",
+              index: sectionPickerCtx.index,
+              section: { type: currentCategory, variant: variantId, content: variant.defaultContent || {} },
+            });
+            closeSectionModal();
+            reloadIframe();
+            flashStatus("Section added", "good");
+          } catch (err) {
+            btn.disabled = false;
+            alert("Couldn't add section: " + err.message);
+          }
+        });
+      });
+    }
+
+    // ---- Trash tray ----
+    async function loadTrash() {
+      try {
+        const data = await AdminAPI.get("/api/admin/pages?view=trash");
+        const items = data.pages || [];
+        const list = $("trashList");
+        const count = $("trashCount");
+        if (!items.length) {
+          list.innerHTML = `<li class="we-trash__empty">Nothing here.</li>`;
+          count.classList.add("hidden");
+          return;
+        }
+        count.textContent = String(items.length);
+        count.classList.remove("hidden");
+        list.innerHTML = items.map(p => `
+          <li class="we-trash__item">
+            <div>
+              <strong>${escapeHtml(p.title || p.slug)}</strong>
+              <small>/${escapeHtml(p.slug)} — deleted ${escapeHtml(new Date(p.deleted_at).toLocaleDateString())}</small>
+            </div>
+            <div class="we-trash__actions">
+              <button type="button" class="btn btn--ghost btn--sm" data-restore="${escapeHtml(p.slug)}">Restore</button>
+              <button type="button" class="btn btn--ghost btn--sm we-trash__purge" data-purge="${escapeHtml(p.slug)}" title="Delete permanently">✕</button>
+            </div>
+          </li>
+        `).join("");
+        list.querySelectorAll("[data-restore]").forEach(b => {
+          b.addEventListener("click", async () => {
+            const slug = b.dataset.restore;
+            try {
+              b.disabled = true;
+              await AdminAPI.post("/api/admin/pages?action=restore&slug=" + encodeURIComponent(slug), {});
+              await loadDynamicPages(); renderPageList(); await loadTrash();
+              flashStatus("Page restored", "good");
+            } catch (err) {
+              b.disabled = false;
+              flashStatus("Restore failed: " + err.message, "bad");
+            }
+          });
+        });
+        list.querySelectorAll("[data-purge]").forEach(b => {
+          b.addEventListener("click", async () => {
+            const slug = b.dataset.purge;
+            if (!confirm("Permanently delete /" + slug + "? This cannot be undone.")) return;
+            try {
+              b.disabled = true;
+              await AdminAPI.del("/api/admin/pages?hard=1&slug=" + encodeURIComponent(slug));
+              await loadTrash();
+              flashStatus("Page purged", "good");
+            } catch (err) {
+              b.disabled = false;
+              flashStatus("Purge failed: " + err.message, "bad");
+            }
+          });
+        });
+      } catch (err) {
+        console.warn("loadTrash:", err && err.message);
+      }
+    }
+
+    function reloadIframe() {
+      const iframe = $("previewFrame");
+      if (iframe && state.activePath) {
+        iframe.src = state.activePath + "?edit=1&_=" + Date.now();
+      }
+    }
+
+    // ---- Message handlers from edit-mode.js (structural actions) ----
+    function bindSectionMessages() {
+      window.addEventListener("message", async (e) => {
+        const d = e.data || {};
+        const slug = state.activePath && state.activePath.startsWith("/") && state.activePath.length > 1 ? state.activePath.slice(1) : null;
+        if (!slug) return;   // section actions only make sense on dynamic pages
+
+        if (d.type === "sm-open-section-picker") {
+          openSectionPicker({ slug, index: Number(d.index) || 0 });
+          return;
+        }
+        if (d.type === "sm-section-action") {
+          const action = d.action;
+          const idx = Number(d.index);
+          try {
+            if (action === "up") {
+              await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(slug), { action: "move", from: idx, to: idx - 1 });
+            } else if (action === "down") {
+              await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(slug), { action: "move", from: idx, to: idx + 1 });
+            } else if (action === "duplicate") {
+              await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(slug), { action: "duplicate", index: idx });
+            } else if (action === "delete") {
+              await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(slug), { action: "delete", index: idx });
+            }
+            reloadIframe();
+          } catch (err) {
+            flashStatus("Section action failed: " + err.message, "bad");
+          }
+        }
+      });
+    }
+
     (async () => {
       if (!(await requireSession())) return;
       await loadDynamicPages();
@@ -421,6 +625,8 @@
       bindTopBarActions();
       bindMessages();
       bindNewPageModal();
+      bindSectionMessages();
+      loadTrash();
     })();
   </script>
 </body>
