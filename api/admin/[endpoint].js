@@ -901,6 +901,17 @@ async function handleSections(req, res) {
     if (!Array.isArray(body.sections)) return res.status(400).json({ error: "sections array required" });
     sections.length = 0;
     body.sections.forEach(s => sections.push(s));
+  } else if (action === "update-content") {
+    // Patch one section's `content` object with the fields in body.content.
+    // Used for section-level property edits (star color, hero image, etc.)
+    // that don't fit the click-to-edit-text model.
+    const from = Number(body.index);
+    if (!Number.isFinite(from) || from < 0 || from >= sections.length) return res.status(400).json({ error: "invalid index" });
+    if (!body.content || typeof body.content !== "object") return res.status(400).json({ error: "content object required" });
+    sections[from] = {
+      ...sections[from],
+      content: { ...(sections[from].content || {}), ...body.content },
+    };
   } else {
     return res.status(400).json({ error: `Unknown action: ${action}` });
   }

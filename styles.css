@@ -3179,6 +3179,31 @@ a.tag:hover {
 }
 .sm-edit-mode .sm-section-inserter button:hover { background: #7c5836; }
 
+/* Testimonial star-colour chip + palette */
+.sm-edit-mode .sm-star-slot {
+  position: absolute; top: 12px; left: 12px; z-index: 45;
+  display: inline-flex; align-items: flex-start; gap: 6px;
+}
+.sm-edit-mode .sm-star-chip {
+  background: rgba(20, 17, 15, 0.90); color: #fff;
+  border: none; border-radius: 999px;
+  padding: 5px 12px; font-family: inherit; font-size: 12px;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.30);
+}
+.sm-edit-mode .sm-star-chip:hover { background: rgba(20, 17, 15, 1); }
+.sm-edit-mode .sm-star-palette {
+  display: flex; gap: 4px;
+  background: #fff; border: 1px solid #ddd; border-radius: 999px;
+  padding: 5px 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+.sm-edit-mode .sm-star-swatch {
+  width: 20px; height: 20px; border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.15); cursor: pointer; padding: 0;
+}
+.sm-edit-mode .sm-star-swatch:hover { transform: scale(1.15); }
+
 /* ---------- Soft pink page background helper ---------- */
 .bg-pink { background: linear-gradient(180deg, #FBEEEA 0%, #F7DFD7 100%); }
 .bg-surface { background: var(--color-surface); }

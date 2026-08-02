@@ -549,6 +549,66 @@
     }
   }
 
+  // Star-colour picker for testimonial sections (dynamic pages only).
+  // Adds a small floating "★ Colour" chip on any .sm-testimonial-section;
+  // click opens a 6-swatch palette. Selection posts a
+  // `sm-section-action / update-content` message to the parent, which
+  // patches the section's content.star_color and reloads the iframe.
+  var STAR_COLOURS = [
+    { label: "Brown",  value: "#9B7045" },
+    { label: "Gold",   value: "#D4A64A" },
+    { label: "Red",    value: "#B23A3A" },
+    { label: "Green",  value: "#5F7C4F" },
+    { label: "Blue",   value: "#4A6D8C" },
+    { label: "Black",  value: "#141110" },
+  ];
+  function decorateTestimonials() {
+    if (!window.__SM_DYNAMIC_PAGE__) return;
+    document.querySelectorAll(".sm-section .sm-testimonial-section").forEach(function (sec) {
+      if (sec.dataset.smStarChip === "1") return;
+      sec.dataset.smStarChip = "1";
+      var wrapper = sec.closest(".sm-section");
+      var index = wrapper ? Number(wrapper.getAttribute("data-section-index")) : null;
+      if (index == null) return;
+
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "sm-star-chip";
+      chip.innerHTML = '★ <span>Star colour</span>';
+      var palette = document.createElement("div");
+      palette.className = "sm-star-palette";
+      palette.innerHTML = STAR_COLOURS.map(function (c) {
+        return '<button type="button" class="sm-star-swatch" data-c="' + c.value + '" style="background:' + c.value + '" title="' + c.label + '"></button>';
+      }).join("");
+      palette.style.display = "none";
+
+      chip.addEventListener("click", function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        palette.style.display = palette.style.display === "none" ? "flex" : "none";
+      });
+      palette.addEventListener("click", function (ev) {
+        var b = ev.target.closest("[data-c]");
+        if (!b) return;
+        ev.preventDefault(); ev.stopPropagation();
+        var color = b.getAttribute("data-c");
+        palette.style.display = "none";
+        // Update DOM immediately for feedback
+        sec.querySelectorAll(".sm-testimonial-stars").forEach(function (s) { s.style.color = color; });
+        // Persist through parent
+        post({ type: "sm-section-action", action: "update-content", index: index, content: { star_color: color } });
+      });
+      document.addEventListener("click", function () { palette.style.display = "none"; });
+
+      // Position chip in the section's top-left; palette anchored under it.
+      var slot = document.createElement("div");
+      slot.className = "sm-star-slot";
+      slot.appendChild(chip);
+      slot.appendChild(palette);
+      sec.style.position = sec.style.position || "relative";
+      sec.appendChild(slot);
+    });
+  }
+
   // FAQ sections use <details>/<summary> which native-toggle on click.
   // In edit mode we want every Q and A visible + editable simultaneously,
   // so force every <details> open and swallow the summary click. Question
@@ -577,6 +637,7 @@
     attachVideoEditors();
     attachBackgroundEditors();
     decorateSections();
+    decorateTestimonials();
     buildToolbar();
     post({ type: "sm-edit-ready" });
   }

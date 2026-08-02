@@ -2279,8 +2279,9 @@ body.editor-body-bg {
 /* Divider hair (used under minimal hero) */
 .wf-hair { height: 1px; background: #000; opacity: 0.3; width: 40%; margin: 4px auto 0; }
 
-/* Wider modal card for the section picker */
-.we-modal__card--wide { max-width: 960px; }
+/* Wider modal cards */
+.we-modal__card--md   { max-width: 860px; }   /* new-page picker */
+.we-modal__card--wide { max-width: 960px; }   /* section library */
 .we-modal__body--split {
   display: grid; grid-template-columns: 200px 1fr; gap: 0;
   padding: 0; min-height: 460px; max-height: 70vh;

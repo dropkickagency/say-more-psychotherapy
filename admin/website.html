@@ -61,7 +61,7 @@
     <!-- MODAL: create new page -->
     <div id="newPageModal" class="we-modal hidden" role="dialog" aria-modal="true" aria-labelledby="newPageTitle">
       <div class="we-modal__backdrop" data-close></div>
-      <div class="we-modal__card">
+      <div class="we-modal__card we-modal__card--md">
         <div class="we-modal__head">
           <h2 id="newPageTitle">Create a new page</h2>
           <button type="button" class="we-modal__close" data-close aria-label="Close">✕</button>
@@ -651,6 +651,16 @@
               await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(slug), { action: "duplicate", index: idx });
             } else if (action === "delete") {
               await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(slug), { action: "delete", index: idx });
+            } else if (action === "update-content") {
+              await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(slug), {
+                action: "update-content", index: idx, content: d.content || {},
+              });
+              // Star-colour changes are cosmetic — keep the current DOM so
+              // any in-flight text edits aren't lost. Reload only if the
+              // iframe explicitly wants it.
+              if (d.reload) reloadIframe();
+              flashStatus("Section updated", "good");
+              return;
             }
             reloadIframe();
           } catch (err) {

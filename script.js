@@ -103,14 +103,26 @@ var __SM_EDIT_MODE__ = false;
   var STATIC_HREFS = ['/', '/about', '/services', '/location', '/blog'];
   var here = window.location.pathname.replace(/\/$/, '') || '/';
 
+  // Normalise href attributes to absolute paths so "about", "/about",
+  // and "/about/" all compare equal. Static HTML historically used
+  // relative hrefs — matching only "/about" left the originals in place
+  // and caused a duplicate to be appended.
+  function normaliseHref(h) {
+    if (!h) return '';
+    var s = String(h);
+    if (!s.startsWith('/')) s = '/' + s;
+    s = s.replace(/\/$/, '');
+    return s || '/';
+  }
+
   function isTopLevelStaticLink(a) {
     if (!a) return false;
     // Ignore anything inside the Services dropdown / mobile submenu — those
     // stay as-is so the sub-page list under Services keeps working.
     if (a.closest('.nav__dropdown')) return false;
     if (a.closest('.nav__mobile__submenu')) return false;
-    var href = a.getAttribute('href') || '';
-    return STATIC_HREFS.indexOf(href.replace(/\/$/, '') || '/') !== -1;
+    var href = normaliseHref(a.getAttribute('href'));
+    return STATIC_HREFS.indexOf(href) !== -1;
   }
 
   function rebuild(list, items) {
