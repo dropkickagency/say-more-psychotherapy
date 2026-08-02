@@ -816,6 +816,44 @@
           return;
         }
 
+        // Delete / duplicate on a content-patch-inserted section.
+        // Works on ANY page (static or dynamic) — the section carries
+        // its patch id from applyExistingPatches.
+        if (d.type === "sm-insert-action") {
+          const patchId = String(d.patchId || "");
+          if (!patchId) return;
+          try {
+            if (d.action === "delete") {
+              await AdminAPI.del("/api/admin/edits?id=" + encodeURIComponent(patchId));
+              reloadIframe();
+              flashStatus("Section deleted", "good");
+            } else if (d.action === "duplicate") {
+              // Fetch patches, find the one we're duplicating, and re-save
+              // its new_content anchored to the CURRENT position of the
+              // section in the iframe DOM (d.anchor). New patch stays as
+              // a draft — user hits Publish to promote.
+              const feed = await AdminAPI.get("/api/admin/edits?path=" + encodeURIComponent(state.activePath));
+              const orig = (feed.patches || []).find(p => String(p.id) === patchId);
+              if (!orig) throw new Error("Original section not found");
+              const uniq = "ins-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+              await AdminAPI.post("/api/admin/edits", {
+                page_path: state.activePath,
+                publish: false,
+                patches: [{
+                  element_path: (d.anchor || "") + " || " + uniq,
+                  element_type: "insert-after",
+                  new_content: orig.new_content,
+                }],
+              });
+              reloadIframe();
+              flashStatus("Section duplicated as draft — click Publish to make it live", "good");
+            }
+          } catch (err) {
+            flashStatus("Couldn't " + d.action + " section: " + err.message, "bad");
+          }
+          return;
+        }
+
         const slug = state.activePath && state.activePath.startsWith("/") && state.activePath.length > 1 ? state.activePath.slice(1) : null;
         if (!slug) return;   // dynamic-only actions past this point
 

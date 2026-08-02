@@ -3179,7 +3179,8 @@ html:not(.sm-edit-mode) .sm-faq-delete { display: none !important; }
   border-radius: 999px; padding: 4px 6px;
   box-shadow: 0 6px 24px rgba(0,0,0,0.30);
 }
-.sm-edit-mode .sm-section:hover > .sm-section-toolbar { display: flex; }
+.sm-edit-mode .sm-section:hover > .sm-section-toolbar,
+.sm-edit-mode section[data-sm-inserted]:hover > .sm-section-toolbar { display: flex; }
 .sm-edit-mode .sm-section-toolbar button {
   width: 28px; height: 28px; border-radius: 999px;
   background: transparent; color: #fff; border: none; cursor: pointer;

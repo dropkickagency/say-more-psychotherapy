@@ -476,10 +476,15 @@
             if (!ref) return;
             var before = p.element_type === "insert-before";
             ref.insertAdjacentHTML(before ? "beforebegin" : "afterend", p.new_content || "");
-            // Mark inserted section as "shown" so scroll-in animation
-            // doesn't leave it at opacity:0 (see script.js note).
             var newEl = before ? ref.previousElementSibling : ref.nextElementSibling;
-            if (newEl && newEl.tagName === "SECTION") newEl.classList.add("is-shown");
+            if (newEl && newEl.tagName === "SECTION") {
+              // Mark shown so scroll-in animation doesn't leave it at opacity:0.
+              newEl.classList.add("is-shown");
+              // Tag with patch id + a marker so decorateInsertedSections
+              // can attach a toolbar (delete + duplicate).
+              newEl.setAttribute("data-sm-inserted", "1");
+              if (p.id != null) newEl.setAttribute("data-sm-patch-id", String(p.id));
+            }
             return;
           }
           var el = document.querySelector(p.element_path);
@@ -563,6 +568,40 @@
       addInserter(sections[0], true, 0);          // above the first
       sections.forEach(function (sec, i) { addInserter(sec, false, i + 1); });
     }
+  }
+
+  // Sections inserted via content-patch (data-sm-inserted="1") get a
+  // small floating toolbar with duplicate + delete. Reuses the same
+  // .sm-section-toolbar styling as dynamic-page section toolbars.
+  // Runs after applyExistingPatches has attached the data attributes.
+  function decorateInsertedSections() {
+    document.querySelectorAll("section[data-sm-inserted='1']").forEach(function (sec) {
+      if (sec.querySelector(":scope > .sm-section-toolbar")) return;
+      var patchId = sec.getAttribute("data-sm-patch-id") || "";
+      var bar = document.createElement("div");
+      bar.className = "sm-section-toolbar";
+      bar.innerHTML =
+        '<button type="button" data-a="duplicate" title="Duplicate this section">⧉</button>' +
+        '<button type="button" data-a="delete" class="is-danger" title="Delete this section">✕</button>';
+      bar.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var action = b.dataset.a;
+          if (action === "delete" && !confirm("Delete this section?")) return;
+          post({
+            type: "sm-insert-action",
+            action: action,
+            patchId: patchId,
+            anchor: elementPath(sec),
+          });
+        });
+      });
+      // Make the section positioning context so absolutely-positioned
+      // toolbar sits inside it.
+      var cs = getComputedStyle(sec);
+      if (cs.position === "static") sec.style.position = "relative";
+      sec.appendChild(bar);
+    });
   }
 
   // Same "+ Add section" affordance for STATIC pages (no
@@ -780,6 +819,7 @@
     decorateFaqs();
     decorateSections();
     decorateStaticSections();
+    decorateInsertedSections();
     decorateTestimonials();
     buildToolbar();
     post({ type: "sm-edit-ready" });
