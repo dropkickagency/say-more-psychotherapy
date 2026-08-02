@@ -786,11 +786,12 @@ async function handlePages(req, res) {
 
     const layout = LAYOUTS[layoutKey] || LAYOUTS.blank;
     const sections = JSON.stringify(layout.sections || []);
+    const metaDescription = typeof body.meta_description === "string" && body.meta_description.trim() ? body.meta_description.trim() : null;
 
     try {
       const [row] = await sql`
-        INSERT INTO pages (slug, title, nav_label, nav_order, sections)
-        VALUES (${slug}, ${title}, ${navLabel || null}, ${navOrder}, ${sections}::jsonb)
+        INSERT INTO pages (slug, title, nav_label, nav_order, sections, meta_description)
+        VALUES (${slug}, ${title}, ${navLabel || null}, ${navOrder}, ${sections}::jsonb, ${metaDescription})
         RETURNING id, slug, title, nav_label, nav_order, published, updated_at
       `;
       return res.status(200).json({ ok: true, page: row });

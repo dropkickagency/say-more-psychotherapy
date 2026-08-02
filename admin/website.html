@@ -81,6 +81,12 @@
             <div class="we-field__hint">Auto-generated from the title — you can override it.</div>
           </div>
           <div class="we-field">
+            <label for="np_meta_desc">Meta description <span class="we-field__optional">(SEO)</span></label>
+            <textarea id="np_meta_desc" rows="2" maxlength="200" placeholder="One or two sentences shown in Google results and social previews."></textarea>
+            <div class="we-field__hint">Aim for ~140 characters. Left blank falls back to a site default.</div>
+          </div>
+
+          <div class="we-field">
             <label>
               <input type="checkbox" id="np_add_to_nav" checked />
               Add to the site's nav menu
@@ -121,6 +127,44 @@
       </div>
     </div>
 
+    <!-- MODAL: page settings (edit title / meta / nav label) -->
+    <div id="settingsModal" class="we-modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+      <div class="we-modal__backdrop" data-close></div>
+      <div class="we-modal__card">
+        <div class="we-modal__head">
+          <h2 id="settingsModalTitle">Page settings</h2>
+          <button type="button" class="we-modal__close" data-close aria-label="Close">✕</button>
+        </div>
+        <div class="we-modal__body">
+          <div class="we-field">
+            <label for="ps_title">Page title</label>
+            <input id="ps_title" type="text" maxlength="80" />
+            <div class="we-field__hint">Shown as the browser tab title and the page's H1.</div>
+          </div>
+          <div class="we-field">
+            <label for="ps_meta_desc">Meta description <span class="we-field__optional">(SEO)</span></label>
+            <textarea id="ps_meta_desc" rows="3" maxlength="200"></textarea>
+            <div class="we-field__hint">Shown in Google results and social previews.</div>
+          </div>
+          <div class="we-field">
+            <label for="ps_nav_label">Nav label</label>
+            <input id="ps_nav_label" type="text" maxlength="60" placeholder="Leave blank to hide from the nav" />
+            <div class="we-field__hint">Empty = the page still exists at its URL but doesn't appear in the site nav.</div>
+          </div>
+          <div class="we-field we-field--readonly">
+            <label>URL</label>
+            <div id="ps_url" class="we-field__readonly">/</div>
+            <div class="we-field__hint">Slug can't be changed here — deleting and re-creating is the safe way.</div>
+          </div>
+          <div id="ps_error" class="we-modal__error hidden"></div>
+        </div>
+        <div class="we-modal__foot">
+          <button type="button" class="btn btn--ghost btn--sm" data-close>Cancel</button>
+          <button type="button" class="btn btn--sm" id="ps_saveBtn">Save changes</button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL: section library picker -->
     <div id="sectionModal" class="we-modal hidden" role="dialog" aria-modal="true" aria-labelledby="sectionModalTitle">
       <div class="we-modal__backdrop" data-close></div>
@@ -154,6 +198,7 @@
             <span>Undo</span>
           </button>
           <a id="viewLive" class="btn btn--ghost btn--sm hidden" target="_blank" rel="noopener">View live ↗</a>
+          <button type="button" class="btn btn--ghost btn--sm hidden" id="settingsPageBtn" title="Edit title, meta description, nav label">Settings</button>
           <button type="button" class="btn btn--ghost btn--sm hidden" id="hidePageBtn" title="Hide this page from the live site">Hide page</button>
           <button type="button" class="btn btn--ghost btn--sm" id="discardBtn" disabled>Discard</button>
           <button type="button" class="btn btn--ghost btn--sm" id="saveDraftBtn" disabled>Save draft</button>
@@ -436,6 +481,7 @@
     async function openNewPageModal() {
       $("np_title").value = "";
       $("np_slug").value = "";
+      $("np_meta_desc").value = "";
       $("np_add_to_nav").checked = true;
       $("np_error").classList.add("hidden");
       await loadLibrary();
@@ -465,6 +511,7 @@
       $("np_createBtn").addEventListener("click", async () => {
         const title = $("np_title").value.trim();
         const slug = slugify($("np_slug").value || title);
+        const meta_description = $("np_meta_desc").value.trim();
         const addToNav = $("np_add_to_nav").checked;
         const errEl = $("np_error");
         errEl.classList.add("hidden");
@@ -476,6 +523,7 @@
           const res = await AdminAPI.post("/api/admin/pages", {
             title, slug, layout: state.layout,
             nav_label: addToNav ? title : null,
+            meta_description: meta_description || null,
           });
           closeNewPageModal();
           await loadDynamicPages();
@@ -488,6 +536,56 @@
         } finally {
           $("np_createBtn").disabled = false;
           $("np_createBtn").textContent = "Create page";
+        }
+      });
+    }
+
+    // ---- Page settings modal (edit title / meta / nav label) ----
+    async function openSettingsModal() {
+      const slug = currentSlugIfCustom();
+      if (!slug) return;
+      $("ps_error").classList.add("hidden");
+      $("settingsModal").classList.remove("hidden");
+      try {
+        const { page } = await AdminAPI.get("/api/admin/pages?slug=" + encodeURIComponent(slug));
+        $("ps_title").value       = page.title || "";
+        $("ps_meta_desc").value   = page.meta_description || "";
+        $("ps_nav_label").value   = page.nav_label || "";
+        $("ps_url").textContent   = "/" + page.slug;
+        $("ps_saveBtn").dataset.slug = page.slug;
+        setTimeout(() => $("ps_title").focus(), 20);
+      } catch (err) {
+        $("ps_error").textContent = err.message; $("ps_error").classList.remove("hidden");
+      }
+    }
+    function closeSettingsModal() { $("settingsModal").classList.add("hidden"); }
+    function bindSettingsModal() {
+      document.querySelectorAll("#settingsModal [data-close]").forEach(el => el.addEventListener("click", closeSettingsModal));
+      $("settingsPageBtn").addEventListener("click", openSettingsModal);
+      $("ps_saveBtn").addEventListener("click", async () => {
+        const slug = $("ps_saveBtn").dataset.slug;
+        if (!slug) return;
+        const title = $("ps_title").value.trim();
+        const meta_description = $("ps_meta_desc").value;
+        const nav_label = $("ps_nav_label").value.trim() || null;
+        if (!title) { $("ps_error").textContent = "Title is required."; $("ps_error").classList.remove("hidden"); return; }
+        $("ps_saveBtn").disabled = true;
+        try {
+          await AdminAPI.patch("/api/admin/pages", { slug, title, meta_description, nav_label });
+          await loadDynamicPages(); renderPageList(); updateHideButton();
+          // Update the toolbar page label so it reflects the new title
+          const p = PAGES.find(x => x.slug === slug);
+          if (p && state.activePath === "/" + slug) {
+            $("currentPage").innerHTML = `<strong>${escapeHtml(p.label)}</strong> <span>/${escapeHtml(slug)}</span>`;
+          }
+          closeSettingsModal();
+          flashStatus("Settings saved", "good");
+          // Meta description is baked into the rendered HTML — reload iframe
+          reloadIframe();
+        } catch (err) {
+          $("ps_error").textContent = err.message; $("ps_error").classList.remove("hidden");
+        } finally {
+          $("ps_saveBtn").disabled = false;
         }
       });
     }
@@ -507,6 +605,12 @@
       $("sectionModal").classList.remove("hidden");
     }
     function closeSectionModal() { $("sectionModal").classList.add("hidden"); sectionPickerCtx = null; }
+    // Wire the [data-close] targets (backdrop, ✕, Cancel) — bug fix.
+    function bindSectionPickerCloses() {
+      document.querySelectorAll("#sectionModal [data-close]").forEach(el => {
+        el.addEventListener("click", closeSectionModal);
+      });
+    }
 
     function renderCategoryNav() {
       const nav = $("sectionCatNav");
@@ -676,11 +780,17 @@
     // the button label.
     function updateHideButton() {
       const btn = $("hidePageBtn");
+      const settingsBtn = $("settingsPageBtn");
       const slug = currentSlugIfCustom();
-      if (!slug) { btn.classList.add("hidden"); return; }
+      if (!slug) {
+        btn.classList.add("hidden");
+        settingsBtn.classList.add("hidden");
+        return;
+      }
       const p = customPageMap.get(slug);
-      if (!p) { btn.classList.add("hidden"); return; }
+      if (!p) { btn.classList.add("hidden"); settingsBtn.classList.add("hidden"); return; }
       btn.classList.remove("hidden");
+      settingsBtn.classList.remove("hidden");
       const hidden = p.published === false;
       btn.textContent = hidden ? "Show on live site" : "Hide from live site";
       btn.classList.toggle("we-hide-btn--hidden", hidden);
@@ -785,6 +895,8 @@
       bindNewPageModal();
       bindSectionMessages();
       bindNavModal();
+      bindSectionPickerCloses();
+      bindSettingsModal();
       $("hidePageBtn").addEventListener("click", toggleCurrentPageHidden);
       loadTrash();
       // Open Home in the iframe by default so the editor lands on a page.

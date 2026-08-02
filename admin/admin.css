@@ -2030,6 +2030,19 @@ body.editor-body-bg {
 .we-field__slug-wrap input:focus { outline: none; }
 .we-field__slug-wrap:focus-within { outline: 2px solid var(--admin-brand); outline-offset: 1px; }
 
+.we-field textarea {
+  width: 100%; font-family: inherit; font-size: 14px; line-height: 1.45;
+  padding: 9px 12px; border-radius: 8px;
+  border: 1px solid var(--admin-border-strong); background: #FFFFFF;
+  resize: vertical; min-height: 60px;
+}
+.we-field textarea:focus { outline: 2px solid var(--admin-brand); outline-offset: 1px; }
+.we-field__optional { color: var(--admin-muted); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11px; margin-left: 4px; }
+.we-field__readonly {
+  padding: 9px 12px; background: #FBF9F4; border: 1px dashed var(--admin-border-strong);
+  border-radius: 8px; font-family: 'Manrope', sans-serif; color: var(--admin-muted); font-size: 14px;
+}
+
 /* Vertical wireframe layout cards (New Page modal) --------------------- */
 /* Tall full-page previews stacked on white — matches the LieferGrun-style
    sitemap look: sequences of sections shown in miniature. Strict monochrome:
