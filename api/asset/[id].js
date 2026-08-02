@@ -82,49 +82,12 @@ export default async function handler(req) {
       return new Response("Bad id", { status: 400 });
     }
 
-    // TEMP: hardcoded Uint8Array test — bypasses DB and toBytes entirely
-    if (urlObj.searchParams.get("test") === "1") {
-      const test = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-      return new Response(test, { status: 200, headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
-    }
-
     const rows = await sql`SELECT mime, data FROM assets WHERE id = ${id} LIMIT 1`;
     if (!rows.length) return new Response("Not found", { status: 404 });
-
-    // TEMP DEBUG: dump the shape Neon returns on Edge
-    if (urlObj.searchParams.get("shape") === "1") {
-      const raw = rows[0].data;
-      const proto = Object.prototype.toString.call(raw);
-      const info = {
-        typeof: typeof raw,
-        proto,
-        isU8: raw instanceof Uint8Array,
-        isArr: Array.isArray(raw),
-        constructorName: raw && raw.constructor && raw.constructor.name,
-        keys: raw && typeof raw === "object" ? Object.keys(raw).slice(0, 5) : null,
-        hasData: raw && "data" in raw,
-        dataIsArr: raw && Array.isArray(raw.data),
-        firstBytes: raw && Array.isArray(raw.data) ? raw.data.slice(0, 6) : (typeof raw === "string" ? raw.slice(0, 16) : null),
-      };
-      return new Response(JSON.stringify(info, null, 2), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
-    }
 
     const row = rows[0];
     const mime = row.mime || "application/octet-stream";
     const bytes = toBytes(row.data);
-
-    // Debug: dump post-toBytes shape as JSON
-    if (urlObj.searchParams.get("out") === "1") {
-      const info = {
-        origLen: row.data && row.data.length,
-        outLen: bytes && bytes.length,
-        outByteLen: bytes && bytes.byteLength,
-        outIsU8: bytes instanceof Uint8Array,
-        outCtor: bytes && bytes.constructor && bytes.constructor.name,
-        first8: bytes ? Array.from(bytes.slice(0, 8)) : null,
-      };
-      return new Response(JSON.stringify(info, null, 2), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
-    }
 
     return new Response(bytes, {
       status: 200,
