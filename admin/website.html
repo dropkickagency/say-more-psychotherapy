@@ -695,11 +695,34 @@
           if (!variant || !sectionPickerCtx) return;
           try {
             btn.disabled = true;
-            await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(sectionPickerCtx.slug), {
-              action: "insert",
-              index: sectionPickerCtx.index,
-              section: { type: currentCategory, variant: variantId, content: variant.defaultContent || {} },
-            });
+            if (sectionPickerCtx.staticMode) {
+              // Static page — server-render the section, then save as an
+              // insert-after / insert-before content patch on the anchor.
+              const rendered = await AdminAPI.post("/api/admin/render-section", {
+                type: currentCategory,
+                variant: variantId,
+                content: variant.defaultContent || {},
+              });
+              const uniq = "ins-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+              const insertType = sectionPickerCtx.position === "before" ? "insert-before" : "insert-after";
+              await AdminAPI.post("/api/admin/edits", {
+                page_path: state.activePath,
+                publish: true,
+                publish_all: true,
+                patches: [{
+                  element_path: sectionPickerCtx.anchor + " || " + uniq,
+                  element_type: insertType,
+                  new_content: rendered.html,
+                }],
+              });
+            } else {
+              // Dynamic page — mutate sections JSONB via /api/admin/sections
+              await AdminAPI.post("/api/admin/sections?slug=" + encodeURIComponent(sectionPickerCtx.slug), {
+                action: "insert",
+                index: sectionPickerCtx.index,
+                section: { type: currentCategory, variant: variantId, content: variant.defaultContent || {} },
+              });
+            }
             closeSectionModal();
             reloadIframe();
             flashStatus("Section added", "good");
@@ -782,8 +805,16 @@
     function bindSectionMessages() {
       window.addEventListener("message", async (e) => {
         const d = e.data || {};
+
+        // Static pages: iframe passes staticMode:true + anchor element_path.
+        // No slug needed — inserts are stored as content_patches.
+        if (d.type === "sm-open-section-picker" && d.staticMode) {
+          openSectionPicker({ staticMode: true, anchor: d.anchor, position: d.position || "after" });
+          return;
+        }
+
         const slug = state.activePath && state.activePath.startsWith("/") && state.activePath.length > 1 ? state.activePath.slice(1) : null;
-        if (!slug) return;   // section actions only make sense on dynamic pages
+        if (!slug) return;   // dynamic-only actions past this point
 
         if (d.type === "sm-open-section-picker") {
           openSectionPicker({ slug, index: Number(d.index) || 0 });

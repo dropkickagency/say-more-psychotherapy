@@ -10,7 +10,7 @@ import {
   requireAdmin,
 } from "../../lib/auth.js";
 import { put } from "@vercel/blob";
-import { LAYOUTS, SECTION_LIBRARY } from "../../lib/render-page.js";
+import { LAYOUTS, SECTION_LIBRARY, renderSingleSection } from "../../lib/render-page.js";
 
 // Needed by the upload-image handler; applies to all endpoints handled
 // here — every other endpoint's body is small JSON so a larger limit
@@ -1027,6 +1027,15 @@ const ROUTES = {
   "pages":          handlePages,
   "sections":       handleSections,
   "nav":            handleNav,
+  "render-section": async function(req, res) {
+    if (!(await requireAdmin(req, res))) return;
+    if (req.method !== "POST") return res.status(405).json({ error: "POST only." });
+    const body = parseBody(req);
+    if (!body || !body.type) return res.status(400).json({ error: "type required." });
+    const html = renderSingleSection({ type: body.type, variant: body.variant, content: body.content || {} });
+    if (!html) return res.status(404).json({ error: `Unknown section: ${body.type}${body.variant ? "/" + body.variant : ""}` });
+    return res.status(200).json({ html });
+  },
   "section-library": async function(req, res) {
     if (!(await requireAdmin(req, res))) return;
     // Also expose the layout starters so the modal picker can render both.

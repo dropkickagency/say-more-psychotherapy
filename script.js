@@ -44,12 +44,27 @@ var __SM_EDIT_MODE__ = false;
       .trim();
   }
 
+  // Inserts smuggle a uniqueness suffix through element_path so two
+  // adjacent inserts don't collide on the (page_path, element_path)
+  // unique index. Format: "<css selector> || ins-…". Strip before use.
+  function insertSelector(raw) {
+    return String(raw || '').split('||')[0].trim();
+  }
+
   var applied = false;
   function applyPatches(patches) {
     if (applied || !Array.isArray(patches)) return;
     applied = true;
     patches.forEach(function (p) {
       try {
+        // Insert-* patches don't overwrite an existing element — they
+        // add a new section adjacent to the anchor.
+        if (p.element_type === 'insert-after' || p.element_type === 'insert-before') {
+          var ref = document.querySelector(insertSelector(p.element_path));
+          if (!ref) return;
+          ref.insertAdjacentHTML(p.element_type === 'insert-before' ? 'beforebegin' : 'afterend', p.new_content || '');
+          return;
+        }
         var el = document.querySelector(p.element_path);
         if (!el) return;
         if (p.element_type === 'image') {

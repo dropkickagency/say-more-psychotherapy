@@ -468,6 +468,15 @@
       var json = await res.json();
       (json.patches || []).forEach(function (p) {
         try {
+          // Insert-* patches don't overwrite; they add adjacent HTML.
+          // element_path has a "|| ins-…" uniqueness suffix — strip it.
+          if (p.element_type === "insert-after" || p.element_type === "insert-before") {
+            var sel = String(p.element_path || "").split("||")[0].trim();
+            var ref = document.querySelector(sel);
+            if (!ref) return;
+            ref.insertAdjacentHTML(p.element_type === "insert-before" ? "beforebegin" : "afterend", p.new_content || "");
+            return;
+          }
           var el = document.querySelector(p.element_path);
           if (!el) return;
           if (p.element_type === "image") {
@@ -549,6 +558,38 @@
       addInserter(sections[0], true, 0);          // above the first
       sections.forEach(function (sec, i) { addInserter(sec, false, i + 1); });
     }
+  }
+
+  // Same "+ Add section" affordance for STATIC pages (no
+  // __SM_DYNAMIC_PAGE__ flag). Inserters live between top-level
+  // <section> children of <body> / <main>. A click posts a
+  // sm-open-section-picker with staticMode:true + anchor element_path
+  // so the parent can save an insert-after content_patch on the anchor.
+  function decorateStaticSections() {
+    if (window.__SM_DYNAMIC_PAGE__) return;
+    var sections = Array.from(document.querySelectorAll("body > section, main > section"));
+    if (!sections.length) return;
+    function makeInserter(anchor, position) {
+      var host = document.createElement("div");
+      host.className = "sm-section-inserter";
+      host.innerHTML = '<button type="button" aria-label="Add section"></button>';
+      host.querySelector("button").addEventListener("click", function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        post({
+          type: "sm-open-section-picker",
+          staticMode: true,
+          anchor: elementPath(anchor),
+          position: position,
+        });
+      });
+      return host;
+    }
+    // One inserter before the FIRST section, and one after EVERY section.
+    var first = sections[0];
+    first.parentNode.insertBefore(makeInserter(first, "before"), first);
+    sections.forEach(function (sec) {
+      sec.parentNode.insertBefore(makeInserter(sec, "after"), sec.nextSibling);
+    });
   }
 
   // Star-colour picker for testimonial sections (dynamic pages only).
@@ -733,6 +774,7 @@
     attachBackgroundEditors();
     decorateFaqs();
     decorateSections();
+    decorateStaticSections();
     decorateTestimonials();
     buildToolbar();
     post({ type: "sm-edit-ready" });
