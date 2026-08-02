@@ -127,10 +127,10 @@
       </div>
     </div>
 
-    <!-- MODAL: page settings (edit title / meta / nav label) -->
+    <!-- MODAL: page settings (edit title / meta / nav label / SEO) -->
     <div id="settingsModal" class="we-modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
       <div class="we-modal__backdrop" data-close></div>
-      <div class="we-modal__card">
+      <div class="we-modal__card we-modal__card--md">
         <div class="we-modal__head">
           <h2 id="settingsModalTitle">Page settings</h2>
           <button type="button" class="we-modal__close" data-close aria-label="Close">✕</button>
@@ -139,12 +139,7 @@
           <div class="we-field">
             <label for="ps_title">Page title</label>
             <input id="ps_title" type="text" maxlength="80" />
-            <div class="we-field__hint">Shown as the browser tab title and the page's H1.</div>
-          </div>
-          <div class="we-field">
-            <label for="ps_meta_desc">Meta description <span class="we-field__optional">(SEO)</span></label>
-            <textarea id="ps_meta_desc" rows="3" maxlength="200"></textarea>
-            <div class="we-field__hint">Shown in Google results and social previews.</div>
+            <div class="we-field__hint">Shown as the page's H1 and as the default browser tab title.</div>
           </div>
           <div class="we-field">
             <label for="ps_nav_label">Nav label</label>
@@ -156,6 +151,43 @@
             <div id="ps_url" class="we-field__readonly">/</div>
             <div class="we-field__hint">Slug can't be changed here — deleting and re-creating is the safe way.</div>
           </div>
+
+          <div class="we-seo-section">
+            <div class="we-seo-section__label">SEO &amp; Social</div>
+            <div class="we-field">
+              <label for="ps_meta_title">Meta title <span class="we-field__optional">(browser tab + Google)</span></label>
+              <input id="ps_meta_title" type="text" maxlength="70" placeholder="Leave blank to use the page title." />
+              <div class="we-field__hint">~60 chars max. Overrides the browser-tab title and the search-result headline.</div>
+            </div>
+            <div class="we-field">
+              <label for="ps_meta_desc">Meta description</label>
+              <textarea id="ps_meta_desc" rows="3" maxlength="200"></textarea>
+              <div class="we-field__hint">Aim for ~140 characters. Shown in Google results and social previews.</div>
+            </div>
+            <div class="we-field">
+              <label for="ps_og_image">Social share image (Open Graph)</label>
+              <input id="ps_og_image" type="url" placeholder="https://…/image.jpg" />
+              <div class="we-field__hint">1200×630 image shown when the page is shared on Facebook, LinkedIn, Twitter, etc.</div>
+            </div>
+            <div class="we-field">
+              <label for="ps_keywords">Keywords <span class="we-field__optional">(optional)</span></label>
+              <input id="ps_keywords" type="text" maxlength="200" placeholder="anxiety therapy, brampton, virtual therapy" />
+              <div class="we-field__hint">Comma-separated. Modern search engines mostly ignore these — safe to skip.</div>
+            </div>
+            <div class="we-field">
+              <label for="ps_canonical">Canonical URL <span class="we-field__optional">(optional)</span></label>
+              <input id="ps_canonical" type="url" placeholder="https://www.saymorepsychotherapy.ca/…" />
+              <div class="we-field__hint">Only set this if the same content lives at another URL and you want to point search engines there.</div>
+            </div>
+            <div class="we-field">
+              <label>
+                <input type="checkbox" id="ps_noindex" />
+                Hide from search engines <span class="we-field__optional">(noindex)</span>
+              </label>
+              <div class="we-field__hint">Emits <code>&lt;meta name="robots" content="noindex, nofollow"&gt;</code> so Google won't list this page.</div>
+            </div>
+          </div>
+
           <div id="ps_error" class="we-modal__error hidden"></div>
         </div>
         <div class="we-modal__foot">
@@ -548,10 +580,15 @@
       $("settingsModal").classList.remove("hidden");
       try {
         const { page } = await AdminAPI.get("/api/admin/pages?slug=" + encodeURIComponent(slug));
-        $("ps_title").value       = page.title || "";
-        $("ps_meta_desc").value   = page.meta_description || "";
-        $("ps_nav_label").value   = page.nav_label || "";
-        $("ps_url").textContent   = "/" + page.slug;
+        $("ps_title").value        = page.title || "";
+        $("ps_nav_label").value    = page.nav_label || "";
+        $("ps_url").textContent    = "/" + page.slug;
+        $("ps_meta_title").value   = page.meta_title || "";
+        $("ps_meta_desc").value    = page.meta_description || "";
+        $("ps_og_image").value     = page.og_image || "";
+        $("ps_keywords").value     = page.keywords || "";
+        $("ps_canonical").value    = page.canonical_url || "";
+        $("ps_noindex").checked    = !!page.noindex;
         $("ps_saveBtn").dataset.slug = page.slug;
         setTimeout(() => $("ps_title").focus(), 20);
       } catch (err) {
@@ -566,12 +603,21 @@
         const slug = $("ps_saveBtn").dataset.slug;
         if (!slug) return;
         const title = $("ps_title").value.trim();
-        const meta_description = $("ps_meta_desc").value;
-        const nav_label = $("ps_nav_label").value.trim() || null;
         if (!title) { $("ps_error").textContent = "Title is required."; $("ps_error").classList.remove("hidden"); return; }
+        const payload = {
+          slug,
+          title,
+          nav_label:        $("ps_nav_label").value.trim() || null,
+          meta_title:       $("ps_meta_title").value.trim(),
+          meta_description: $("ps_meta_desc").value.trim(),
+          og_image:         $("ps_og_image").value.trim(),
+          keywords:         $("ps_keywords").value.trim(),
+          canonical_url:    $("ps_canonical").value.trim(),
+          noindex:          $("ps_noindex").checked,
+        };
         $("ps_saveBtn").disabled = true;
         try {
-          await AdminAPI.patch("/api/admin/pages", { slug, title, meta_description, nav_label });
+          await AdminAPI.patch("/api/admin/pages", payload);
           await loadDynamicPages(); renderPageList(); updateHideButton();
           // Update the toolbar page label so it reflects the new title
           const p = PAGES.find(x => x.slug === slug);

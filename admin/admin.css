@@ -2042,6 +2042,19 @@ body.editor-body-bg {
   padding: 9px 12px; background: #FBF9F4; border: 1px dashed var(--admin-border-strong);
   border-radius: 8px; font-family: 'Manrope', sans-serif; color: var(--admin-muted); font-size: 14px;
 }
+.we-seo-section {
+  margin-top: 22px; padding-top: 18px;
+  border-top: 1px solid var(--admin-border);
+}
+.we-seo-section__label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--admin-brand-dark); font-weight: 700;
+  margin-bottom: 12px;
+}
+.we-field code {
+  font-family: 'ui-monospace', 'SFMono-Regular', Menlo, monospace;
+  font-size: 11px; background: #FBF9F4; padding: 1px 5px; border-radius: 3px;
+}
 
 /* Vertical wireframe layout cards (New Page modal) --------------------- */
 /* Tall full-page previews stacked on white — matches the LieferGrun-style

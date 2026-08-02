@@ -66,11 +66,19 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    if (!name || !phone || String(phone).trim() === "") {
-      return jsonError(res, 400, "Name, email, and phone number are required.");
+    // Name + email required for every form. Phone is only required when
+    // there's no message — otherwise the therapist can still reach out via
+    // email. Contact-style forms without a phone submit fine.
+    if (!name || String(name).trim() === "") {
+      return jsonError(res, 400, "Please enter your name.");
     }
     if (!isLikelyEmail(email)) {
       return jsonError(res, 400, "Please enter a valid email address.");
+    }
+    const hasPhone = phone && String(phone).trim() !== "";
+    const hasNote  = note  && String(note).trim() !== "";
+    if (!hasPhone && !hasNote) {
+      return jsonError(res, 400, "Please add a phone number or a short message so we can reach out.");
     }
 
     // Init Resend now (may throw if RESEND_API_KEY missing).
@@ -98,7 +106,7 @@ export default async function handler(req, res) {
       <div style="font-family: -apple-system, system-ui, Segoe UI, Helvetica, Arial, sans-serif; color: #14110F; line-height: 1.55;">
         <h2 style="font-family: Georgia, serif; color: #745236; margin-bottom: 16px;">Booking request</h2>
         <p style="margin: 0 0 8px;"><strong>Name:</strong> ${safeName}</p>
-        <p style="margin: 0 0 8px;"><strong>Phone:</strong> <a href="tel:${safePhone.replace(/[^0-9+]/g, '')}" style="color:#9B7045;">${safePhone}</a></p>
+        ${hasPhone ? `<p style="margin: 0 0 8px;"><strong>Phone:</strong> <a href="tel:${safePhone.replace(/[^0-9+]/g, '')}" style="color:#9B7045;">${safePhone}</a></p>` : ""}
         <p style="margin: 0 0 8px;"><strong>Email:</strong> <a href="mailto:${safeEmail}" style="color:#9B7045;">${safeEmail}</a></p>
         ${service ? `<p style="margin: 0 0 8px;"><strong>Service interest:</strong> ${safeService}</p>` : ""}
         ${when ? `<p style="margin: 0 0 8px;"><strong>When suits them:</strong> ${safeWhen}</p>` : ""}

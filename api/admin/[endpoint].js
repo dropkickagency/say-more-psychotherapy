@@ -817,6 +817,11 @@ async function handlePages(req, res) {
     const nextMeta        = typeof body.meta_description === "string" ? body.meta_description                            : current.meta_description;
     const nextPublished   = typeof body.published === "boolean"       ? body.published                                   : current.published;
     const nextSections    = Array.isArray(body.sections)              ? JSON.stringify(body.sections)                    : JSON.stringify(current.sections);
+    const nextMetaTitle   = typeof body.meta_title === "string"       ? (body.meta_title.trim()    || null)              : current.meta_title;
+    const nextOgImage     = typeof body.og_image === "string"         ? (body.og_image.trim()      || null)              : current.og_image;
+    const nextKeywords    = typeof body.keywords === "string"         ? (body.keywords.trim()      || null)              : current.keywords;
+    const nextCanonical   = typeof body.canonical_url === "string"    ? (body.canonical_url.trim() || null)              : current.canonical_url;
+    const nextNoindex     = typeof body.noindex === "boolean"         ? body.noindex                                     : current.noindex;
 
     const [row] = await sql`
       UPDATE pages
@@ -826,9 +831,14 @@ async function handlePages(req, res) {
           meta_description = ${nextMeta},
           published        = ${nextPublished},
           sections         = ${nextSections}::jsonb,
+          meta_title       = ${nextMetaTitle},
+          og_image         = ${nextOgImage},
+          keywords         = ${nextKeywords},
+          canonical_url    = ${nextCanonical},
+          noindex          = ${nextNoindex},
           updated_at       = NOW()
       WHERE slug = ${slug}
-      RETURNING id, slug, title, nav_label, nav_order, published, updated_at
+      RETURNING id, slug, title, nav_label, nav_order, published, meta_title, meta_description, og_image, keywords, canonical_url, noindex, updated_at
     `;
     return res.status(200).json({ ok: true, page: row });
   }
