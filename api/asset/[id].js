@@ -62,6 +62,12 @@ export default async function handler(req) {
       return new Response("Bad id", { status: 400 });
     }
 
+    // TEMP: hardcoded Uint8Array test — bypasses DB and toBytes entirely
+    if (urlObj.searchParams.get("test") === "1") {
+      const test = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+      return new Response(test, { status: 200, headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
+    }
+
     const rows = await sql`SELECT mime, data FROM assets WHERE id = ${id} LIMIT 1`;
     if (!rows.length) return new Response("Not found", { status: 404 });
 
