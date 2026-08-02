@@ -340,12 +340,13 @@
       return LIBRARY;
     }
 
-    // Wireframe painter — turns a variant's `wire` blocks into a stacked SVG-ish preview.
-    function paintWire(wire) {
-      if (!Array.isArray(wire) || !wire.length) {
-        return `<div class="we-wire we-wire--empty">Blank</div>`;
-      }
-      return `<div class="we-wire">${wire.map(b => `<div class="we-wire__block we-wire__block--${b.c}" style="height: ${b.h}px;"></div>`).join("")}</div>`;
+    // Each variant carries its own `preview` HTML — the picker just
+    // drops it into the card. If a variant has no preview (older schema),
+    // fall back to a blank-hatch placeholder.
+    function variantPreview(variant) {
+      if (!variant) return `<div class="wf-page wf-page--empty">Blank</div>`;
+      if (variant.preview) return variant.preview;
+      return `<div class="wf-page wf-page--empty">Preview coming soon</div>`;
     }
 
     // ---- Layout picker (in New Page modal) ----
@@ -353,19 +354,19 @@
       if (!LIBRARY) return;
       const host = $("np_layouts");
       host.innerHTML = LIBRARY.layouts.map((l, i) => {
-        // Build a wireframe from the layout's sections by looking up each
-        // section's wire in the library
-        const sectionWires = (l.sections || []).map(s => {
+        // Stack the actual section previews for every section in the layout,
+        // wrapped in a wf-page frame with a mini nav bar on top.
+        const sectionPreviews = (l.sections || []).map(s => {
           const cat = LIBRARY.library[s.type];
-          if (!cat) return null;
+          if (!cat) return "";
           const variant = (cat.variants || []).find(v => v.id === s.variant) || cat.variants[0];
-          return variant ? { label: cat.label + " · " + variant.label, wire: variant.wire } : null;
-        }).filter(Boolean);
-        const preview = sectionWires.length
-          ? sectionWires.map(sw => paintWire(sw.wire)).join("")
-          : `<div class="we-wire we-wire--empty">Blank</div>`;
+          return variantPreview(variant);
+        }).filter(Boolean).join("");
+        const preview = sectionPreviews
+          ? `<div class="wf-page"><div class="wf-nav"></div>${sectionPreviews}<div class="wf-foot"></div></div>`
+          : `<div class="wf-page wf-page--empty"><div class="wf-nav"></div><div class="wf-page__blank">Blank</div><div class="wf-foot"></div></div>`;
         return `
-          <button type="button" class="we-layout-card${i === 1 ? " is-active" : ""}" data-layout="${escapeHtml(l.key)}">
+          <button type="button" class="we-layout-card${i === 0 ? " is-active" : ""}" data-layout="${escapeHtml(l.key)}">
             <div class="we-layout-card__preview">${preview}</div>
             <div class="we-layout-card__meta">
               <strong>${escapeHtml(l.label)}</strong>
@@ -373,7 +374,7 @@
             </div>
           </button>`;
       }).join("");
-      state.layout = LIBRARY.layouts[1] ? LIBRARY.layouts[1].key : "blank";
+      state.layout = LIBRARY.layouts[0] ? LIBRARY.layouts[0].key : "blank";
       host.querySelectorAll(".we-layout-card").forEach(btn => {
         btn.addEventListener("click", () => {
           host.querySelectorAll(".we-layout-card").forEach(x => x.classList.remove("is-active"));
@@ -488,7 +489,7 @@
       const host = $("sectionVariants");
       host.innerHTML = cat.variants.map(v => `
         <button type="button" class="we-variant-card" data-variant="${escapeHtml(v.id)}">
-          <div class="we-variant-card__preview">${paintWire(v.wire)}</div>
+          <div class="we-variant-card__preview">${variantPreview(v)}</div>
           <div class="we-variant-card__meta">
             <strong>${escapeHtml(cat.label)} — ${escapeHtml(v.label)}</strong>
             <small>${escapeHtml(v.description)}</small>
