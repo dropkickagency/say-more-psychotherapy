@@ -30,20 +30,28 @@ export default async function handler(req, res) {
     // instead of image bytes.
     const raw = row.data;
     let buf;
+    let shape;
     if (Buffer.isBuffer(raw)) {
-      buf = raw;
+      buf = raw; shape = "buffer";
     } else if (raw instanceof Uint8Array) {
-      buf = Buffer.from(raw);
-    } else if (raw && Array.isArray(raw.data) && raw.type === "Buffer") {
-      buf = Buffer.from(raw.data);
+      buf = Buffer.from(raw); shape = "uint8";
+    } else if (raw && Array.isArray(raw.data)) {
+      // Handles the JSON-serialised Buffer form regardless of whether
+      // raw.type === "Buffer" is present.
+      buf = Buffer.from(raw.data); shape = "obj.data[]";
+    } else if (raw && raw.data instanceof Uint8Array) {
+      buf = Buffer.from(raw.data); shape = "obj.data.u8";
     } else if (Array.isArray(raw)) {
-      buf = Buffer.from(raw);
+      buf = Buffer.from(raw); shape = "array";
     } else if (typeof raw === "string") {
       const hex = raw.startsWith("\\x") ? raw.slice(2) : raw;
-      buf = Buffer.from(hex, "hex");
+      buf = Buffer.from(hex, "hex"); shape = "hexstr";
+    } else if (raw && typeof raw === "object" && raw.constructor && raw.constructor.name) {
+      buf = Buffer.from(raw); shape = "obj:" + raw.constructor.name;
     } else {
-      buf = Buffer.from(raw);
+      buf = Buffer.from(String(raw)); shape = "fallback";
     }
+    res.setHeader("X-Sm-Shape", shape);
 
     res.setHeader("Content-Type", mime);
     res.setHeader("Content-Length", buf.length);
