@@ -362,9 +362,11 @@
           const variant = (cat.variants || []).find(v => v.id === s.variant) || cat.variants[0];
           return variantPreview(variant);
         }).filter(Boolean).join("");
+        const nav  = `<div class="wf-nav"><div class="wf-nav__brand">Say·More</div><span class="wf-nav__link">Home</span><span class="wf-nav__link">About</span><span class="wf-nav__link">Services</span><span class="wf-nav__link">Blog</span><span class="wf-nav__cta">Get Free Session</span></div>`;
+        const foot = `<div class="wf-foot"><span>© Say More Psychotherapy</span><span>Privacy · Admin</span></div>`;
         const preview = sectionPreviews
-          ? `<div class="wf-page"><div class="wf-nav"></div>${sectionPreviews}<div class="wf-foot"></div></div>`
-          : `<div class="wf-page wf-page--empty"><div class="wf-nav"></div><div class="wf-page__blank">Blank</div><div class="wf-foot"></div></div>`;
+          ? `<div class="wf-page">${nav}${sectionPreviews}${foot}</div>`
+          : `<div class="wf-page wf-page--empty">${nav}<div class="wf-page__blank">Blank</div>${foot}</div>`;
         return `
           <button type="button" class="we-layout-card${i === 0 ? " is-active" : ""}" data-layout="${escapeHtml(l.key)}">
             <div class="we-layout-card__preview">${preview}</div>

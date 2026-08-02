@@ -549,11 +549,29 @@
     }
   }
 
+  // FAQ sections use <details>/<summary> which native-toggle on click.
+  // In edit mode we want every Q and A visible + editable simultaneously,
+  // so force every <details> open and swallow the summary click. Question
+  // text (inside <span>) and answer text (inside <p>) then get picked up
+  // by the normal text-editor click handler.
+  function unlockFaqAccordions() {
+    document.querySelectorAll("details").forEach(function (d) {
+      d.setAttribute("open", "");
+      d.addEventListener("toggle", function () {
+        if (!d.open) d.setAttribute("open", "");
+      });
+    });
+    document.querySelectorAll("summary").forEach(function (s) {
+      s.addEventListener("click", function (ev) { ev.preventDefault(); });
+    });
+  }
+
   //---------- Boot ----------
   async function boot() {
     document.documentElement.classList.add("sm-edit-mode");
     neuteriseLinks();
     await applyExistingPatches();
+    unlockFaqAccordions();
     attachTextEditors();
     attachImageEditors();
     attachVideoEditors();
