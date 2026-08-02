@@ -26,23 +26,29 @@ const sql = url ? neon(url) : null;
 // into a Uint8Array. Handles real Buffers, Uint8Arrays, the JSON-shape
 // {type:"Buffer", data:[…]}, plain int arrays, and psql hex strings.
 function toBytes(raw) {
-  // Neon on Edge returns a Node-polyfill Buffer that carries a
-  // toJSON() method. If we pass that Buffer directly to Response(),
-  // the runtime calls toJSON and we get a `{type:"Buffer",data:[…]}`
-  // body. Force a fresh plain Uint8Array via Uint8Array.from — no
-  // toJSON, no toString override, just raw bytes.
-  if (raw instanceof Uint8Array) return Uint8Array.from(raw);
-  if (raw && Array.isArray(raw.data)) return Uint8Array.from(raw.data);
-  if (Array.isArray(raw)) return Uint8Array.from(raw);
+  // Neon on Edge returns a Node-polyfill Buffer whose constructor is
+  // "Buffer" (Uint8Array subclass). Even Uint8Array.from(buffer) inherits
+  // the .toJSON that Response() then invokes, wrecking the body. Force
+  // a FRESH ArrayBuffer via manual byte copy — the result is a plain
+  // Uint8Array with no methods overridden.
+  function copy(arrayLike, len) {
+    const ab = new ArrayBuffer(len);
+    const view = new Uint8Array(ab);
+    for (let i = 0; i < len; i++) view[i] = arrayLike[i] & 0xff;
+    return view;
+  }
+  if (raw && (raw instanceof Uint8Array || (raw.length != null && raw.constructor && raw.constructor.name === "Buffer"))) {
+    return copy(raw, raw.length || raw.byteLength);
+  }
+  if (raw && Array.isArray(raw.data)) return copy(raw.data, raw.data.length);
+  if (Array.isArray(raw)) return copy(raw, raw.length);
   if (typeof raw === "string") {
     const hex = raw.startsWith("\\x") ? raw.slice(2) : raw;
     const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < bytes.length; i++) {
-      bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-    }
+    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
     return bytes;
   }
-  return Uint8Array.from(raw);
+  return copy(raw, raw.length || 0);
 }
 
 export default async function handler(req) {
