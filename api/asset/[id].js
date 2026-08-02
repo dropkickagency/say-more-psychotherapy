@@ -25,30 +25,50 @@ const sql = url ? neon(url) : null;
 // Normalise whatever Neon's HTTP driver hands us for a BYTEA column
 // into a Uint8Array. Handles real Buffers, Uint8Arrays, the JSON-shape
 // {type:"Buffer", data:[…]}, plain int arrays, and psql hex strings.
+function copyToBytes(arrayLike) {
+  const len = arrayLike.length;
+  const ab = new ArrayBuffer(len);
+  const view = new Uint8Array(ab);
+  for (let i = 0; i < len; i++) view[i] = arrayLike[i] & 0xff;
+  return view;
+}
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return bytes;
+}
+
+// Neon's HTTP driver on this project transports BYTEA columns as JSON.
+// What we receive is a "Buffer"/Uint8Array whose bytes are the UTF-8
+// encoding of {"type":"Buffer","data":[…real image bytes…]}. To get the
+// actual image, we have to decode as string → JSON.parse → pull `data`.
+// Handles every other plausible shape as a fallback.
 function toBytes(raw) {
-  // Neon on Edge returns a Node-polyfill Buffer whose constructor is
-  // "Buffer" (Uint8Array subclass). Even Uint8Array.from(buffer) inherits
-  // the .toJSON that Response() then invokes, wrecking the body. Force
-  // a FRESH ArrayBuffer via manual byte copy — the result is a plain
-  // Uint8Array with no methods overridden.
-  function copy(arrayLike, len) {
-    const ab = new ArrayBuffer(len);
-    const view = new Uint8Array(ab);
-    for (let i = 0; i < len; i++) view[i] = arrayLike[i] & 0xff;
-    return view;
+  if (raw && typeof raw === "object" && !Array.isArray(raw) &&
+      !(raw instanceof Uint8Array) && Array.isArray(raw.data)) {
+    // Already parsed object form
+    return copyToBytes(raw.data);
   }
-  if (raw && (raw instanceof Uint8Array || (raw.length != null && raw.constructor && raw.constructor.name === "Buffer"))) {
-    return copy(raw, raw.length || raw.byteLength);
-  }
-  if (raw && Array.isArray(raw.data)) return copy(raw.data, raw.data.length);
-  if (Array.isArray(raw)) return copy(raw, raw.length);
+  let str;
   if (typeof raw === "string") {
-    const hex = raw.startsWith("\\x") ? raw.slice(2) : raw;
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-    return bytes;
+    str = raw;
+  } else if (raw && (raw instanceof Uint8Array || typeof raw.length === "number")) {
+    str = new TextDecoder("utf-8").decode(raw instanceof Uint8Array ? raw : copyToBytes(raw));
+  } else {
+    str = String(raw);
   }
-  return copy(raw, raw.length || 0);
+  // JSON-of-Buffer form (Neon HTTP quirk)
+  try {
+    const parsed = JSON.parse(str);
+    if (parsed && Array.isArray(parsed.data)) return copyToBytes(parsed.data);
+    if (Array.isArray(parsed)) return copyToBytes(parsed);
+  } catch (e) { /* not JSON */ }
+  // psql hex wire format: \x89504e...
+  if (str.startsWith("\\x")) return hexToBytes(str.slice(2));
+  // Last resort: char codes
+  const bytes = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i) & 0xff;
+  return bytes;
 }
 
 export default async function handler(req) {
