@@ -52,6 +52,11 @@ export default async function handler(req) {
       return new Response("Bad id", { status: 400 });
     }
 
+    // TEMP: prove new code is running
+    if (urlObj.searchParams.get("hello") === "1") {
+      return new Response("edge-runtime-hello-" + id, { status: 200, headers: { "Content-Type": "text/plain" } });
+    }
+
     const rows = await sql`SELECT mime, data FROM assets WHERE id = ${id} LIMIT 1`;
     if (!rows.length) return new Response("Not found", { status: 404 });
 
