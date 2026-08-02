@@ -26,9 +26,14 @@ const sql = url ? neon(url) : null;
 // into a Uint8Array. Handles real Buffers, Uint8Arrays, the JSON-shape
 // {type:"Buffer", data:[…]}, plain int arrays, and psql hex strings.
 function toBytes(raw) {
-  if (raw instanceof Uint8Array) return raw;
-  if (raw && Array.isArray(raw.data)) return new Uint8Array(raw.data);
-  if (Array.isArray(raw)) return new Uint8Array(raw);
+  // Neon on Edge returns a Node-polyfill Buffer that carries a
+  // toJSON() method. If we pass that Buffer directly to Response(),
+  // the runtime calls toJSON and we get a `{type:"Buffer",data:[…]}`
+  // body. Force a fresh plain Uint8Array via Uint8Array.from — no
+  // toJSON, no toString override, just raw bytes.
+  if (raw instanceof Uint8Array) return Uint8Array.from(raw);
+  if (raw && Array.isArray(raw.data)) return Uint8Array.from(raw.data);
+  if (Array.isArray(raw)) return Uint8Array.from(raw);
   if (typeof raw === "string") {
     const hex = raw.startsWith("\\x") ? raw.slice(2) : raw;
     const bytes = new Uint8Array(hex.length / 2);
@@ -37,8 +42,7 @@ function toBytes(raw) {
     }
     return bytes;
   }
-  // Fallback — best-effort byte view
-  return new Uint8Array(raw);
+  return Uint8Array.from(raw);
 }
 
 export default async function handler(req) {
