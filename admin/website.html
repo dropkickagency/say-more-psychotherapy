@@ -31,6 +31,11 @@
         <ul id="pageList" class="we-page-list"><li class="loading">Loading pages…</li></ul>
       </div>
 
+      <button type="button" id="navMenuBtn" class="we-nav-menu-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        Nav menu order
+      </button>
+
       <details class="we-trash" id="trashTray">
         <summary>
           <span class="we-trash__label">Recently deleted</span>
@@ -96,6 +101,26 @@
       </div>
     </div>
 
+    <!-- MODAL: nav-menu reorder + hide -->
+    <div id="navModal" class="we-modal hidden" role="dialog" aria-modal="true" aria-labelledby="navModalTitle">
+      <div class="we-modal__backdrop" data-close></div>
+      <div class="we-modal__card">
+        <div class="we-modal__head">
+          <h2 id="navModalTitle">Nav menu</h2>
+          <button type="button" class="we-modal__close" data-close aria-label="Close">✕</button>
+        </div>
+        <div class="we-modal__body">
+          <p class="we-hint" style="padding:0 0 10px">Drag items up or down with the arrows, and toggle the eye to hide items from the nav.</p>
+          <ul id="navList" class="we-navlist"><li class="loading">Loading…</li></ul>
+          <div id="nav_error" class="we-modal__error hidden"></div>
+        </div>
+        <div class="we-modal__foot">
+          <button type="button" class="btn btn--ghost btn--sm" data-close>Cancel</button>
+          <button type="button" class="btn btn--sm" id="nav_saveBtn">Save nav order</button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL: section library picker -->
     <div id="sectionModal" class="we-modal hidden" role="dialog" aria-modal="true" aria-labelledby="sectionModalTitle">
       <div class="we-modal__backdrop" data-close></div>
@@ -129,6 +154,7 @@
             <span>Undo</span>
           </button>
           <a id="viewLive" class="btn btn--ghost btn--sm hidden" target="_blank" rel="noopener">View live ↗</a>
+          <button type="button" class="btn btn--ghost btn--sm hidden" id="hidePageBtn" title="Hide this page from the live site">Hide page</button>
           <button type="button" class="btn btn--ghost btn--sm" id="discardBtn" disabled>Discard</button>
           <button type="button" class="btn btn--ghost btn--sm" id="saveDraftBtn" disabled>Save draft</button>
           <button type="button" class="btn btn--sm" id="publishBtn" disabled>Publish</button>
@@ -166,20 +192,27 @@
 
     // Runtime page list = static pages + user-created dynamic pages.
     // Dynamic pages are loaded from /api/admin/pages on boot and after
-    // every create/delete.
+    // every create/delete/toggle.
     let PAGES = STATIC_PAGES.slice();
+    const customPageMap = new Map();   // slug → full page row (used by hide toggle)
     const state = { activePath: null, dirty: 0, history: 0, layout: "landing" };
     const $ = (id) => document.getElementById(id);
 
     async function loadDynamicPages() {
       try {
         const data = await AdminAPI.get("/api/admin/pages");
-        const custom = (data.pages || []).map(p => ({
-          path: "/" + p.slug,
-          label: p.title,
-          custom: true,
-          slug: p.slug,
-        }));
+        const rows = data.pages || [];
+        customPageMap.clear();
+        const custom = rows.map(p => {
+          customPageMap.set(p.slug, p);
+          return {
+            path: "/" + p.slug,
+            label: p.title,
+            custom: true,
+            slug: p.slug,
+            hidden: p.published === false,
+          };
+        });
         PAGES = STATIC_PAGES.concat(custom);
       } catch (err) {
         console.warn("loadDynamicPages:", err && err.message);
@@ -190,8 +223,8 @@
       const ul = $("pageList");
       ul.innerHTML = PAGES.map(p => `
         <li>
-          <button type="button" class="we-page-btn${state.activePath === p.path ? ' is-active' : ''}" data-path="${escapeHtml(p.path)}"${p.custom ? ` data-slug="${escapeHtml(p.slug)}"` : ""}>
-            <span class="we-page-btn__label">${escapeHtml(p.label)}${p.custom ? '<span class="we-page-btn__badge">custom</span>' : ""}</span>
+          <button type="button" class="we-page-btn${state.activePath === p.path ? ' is-active' : ''}${p.hidden ? ' is-hidden' : ''}" data-path="${escapeHtml(p.path)}"${p.custom ? ` data-slug="${escapeHtml(p.slug)}"` : ""}>
+            <span class="we-page-btn__label">${escapeHtml(p.label)}${p.custom ? '<span class="we-page-btn__badge">custom</span>' : ""}${p.hidden ? '<span class="we-page-btn__badge we-page-btn__badge--hidden">hidden</span>' : ""}</span>
             <span class="we-page-btn__slug">${escapeHtml(p.path)}</span>
             ${p.custom ? `<button type="button" class="we-page-btn__delete" data-delete="${escapeHtml(p.slug)}" title="Delete page" aria-label="Delete page">✕</button>` : ""}
           </button>
@@ -244,6 +277,7 @@
       iframe.src = path + "?edit=1&_=" + Date.now();
       renderPageList();
       updateButtons();
+      updateHideButton();
       $("editCount").classList.add("hidden");
     }
 
@@ -354,21 +388,26 @@
       if (!LIBRARY) return;
       const host = $("np_layouts");
       host.innerHTML = LIBRARY.layouts.map((l, i) => {
-        // Stack the actual section previews for every section in the layout,
-        // wrapped in a wf-page frame with a mini nav bar on top.
-        const sectionPreviews = (l.sections || []).map(s => {
-          const cat = LIBRARY.library[s.type];
-          if (!cat) return "";
-          const variant = (cat.variants || []).find(v => v.id === s.variant) || cat.variants[0];
-          return variantPreview(variant);
-        }).filter(Boolean).join("");
-        const nav  = `<div class="wf-nav"><div class="wf-nav__brand">Say·More</div><span class="wf-nav__link">Home</span><span class="wf-nav__link">About</span><span class="wf-nav__link">Services</span><span class="wf-nav__link">Blog</span><span class="wf-nav__cta">Get Free Session</span></div>`;
-        const foot = `<div class="wf-foot"><span>© Say More Psychotherapy</span><span>Privacy · Admin</span></div>`;
-        const preview = sectionPreviews
-          ? `<div class="wf-page">${nav}${sectionPreviews}${foot}</div>`
-          : `<div class="wf-page wf-page--empty">${nav}<div class="wf-page__blank">Blank</div>${foot}</div>`;
+        // Blank gets a special "+" card — no stacked wireframe, just an
+        // oversized plus so it reads as "start from nothing".
+        let preview;
+        let cardExtra = "";
+        if (l.key === "blank" || !(l.sections && l.sections.length)) {
+          preview = `<div class="we-blank-preview"><div class="we-blank-preview__plus">+</div><div class="we-blank-preview__label">Start blank</div></div>`;
+          cardExtra = " we-layout-card--blank";
+        } else {
+          const sectionPreviews = (l.sections || []).map(s => {
+            const cat = LIBRARY.library[s.type];
+            if (!cat) return "";
+            const variant = (cat.variants || []).find(v => v.id === s.variant) || cat.variants[0];
+            return variantPreview(variant);
+          }).filter(Boolean).join("");
+          const nav  = `<div class="wf-nav"><div class="wf-nav__brand">Say·More</div><span class="wf-nav__link">Home</span><span class="wf-nav__link">About</span><span class="wf-nav__link">Services</span><span class="wf-nav__link">Blog</span><span class="wf-nav__cta">Get Free Session</span></div>`;
+          const foot = `<div class="wf-foot"><span>© Say More Psychotherapy</span><span>Privacy · Admin</span></div>`;
+          preview = `<div class="wf-page">${nav}${sectionPreviews}${foot}</div>`;
+        }
         return `
-          <button type="button" class="we-layout-card${i === 0 ? " is-active" : ""}" data-layout="${escapeHtml(l.key)}">
+          <button type="button" class="we-layout-card${cardExtra}${i === 0 ? " is-active" : ""}" data-layout="${escapeHtml(l.key)}">
             <div class="we-layout-card__preview">${preview}</div>
             <div class="we-layout-card__meta">
               <strong>${escapeHtml(l.label)}</strong>
@@ -621,6 +660,112 @@
       });
     }
 
+    // ---- Hide / show current page (published toggle) ----
+    // Only meaningful for custom pages — we don't have publish state on
+    // static routes. Sends a PATCH with { published: bool } and updates
+    // the button label.
+    function updateHideButton() {
+      const btn = $("hidePageBtn");
+      const slug = currentSlugIfCustom();
+      if (!slug) { btn.classList.add("hidden"); return; }
+      const p = customPageMap.get(slug);
+      if (!p) { btn.classList.add("hidden"); return; }
+      btn.classList.remove("hidden");
+      const hidden = p.published === false;
+      btn.textContent = hidden ? "Show on live site" : "Hide from live site";
+      btn.classList.toggle("we-hide-btn--hidden", hidden);
+    }
+    function currentSlugIfCustom() {
+      if (!state.activePath || !state.activePath.startsWith("/") || state.activePath === "/") return null;
+      const slug = state.activePath.slice(1);
+      return customPageMap.has(slug) ? slug : null;
+    }
+    async function toggleCurrentPageHidden() {
+      const slug = currentSlugIfCustom();
+      if (!slug) return;
+      const p = customPageMap.get(slug);
+      const willHide = p.published !== false;
+      $("hidePageBtn").disabled = true;
+      try {
+        await AdminAPI.patch("/api/admin/pages", { slug, published: !willHide });
+        await loadDynamicPages();
+        renderPageList();
+        updateHideButton();
+        flashStatus(willHide ? "Page hidden — no longer on live site" : "Page live again", "good");
+      } catch (err) {
+        flashStatus("Couldn't update visibility: " + err.message, "bad");
+      } finally {
+        $("hidePageBtn").disabled = false;
+      }
+    }
+
+    // ---- Nav-menu reorder modal ----
+    let navDraft = null;   // array of nav items being edited
+    async function openNavModal() {
+      $("nav_error").classList.add("hidden");
+      $("navList").innerHTML = "<li class='loading'>Loading…</li>";
+      $("navModal").classList.remove("hidden");
+      try {
+        const data = await AdminAPI.get("/api/admin/nav");
+        navDraft = (data.items || []).map(x => ({ ...x }));
+        renderNavList();
+      } catch (err) {
+        $("navList").innerHTML = "<li class='we-trash__empty'>Couldn't load nav: " + escapeHtml(err.message) + "</li>";
+      }
+    }
+    function closeNavModal() { $("navModal").classList.add("hidden"); }
+    function renderNavList() {
+      const ul = $("navList");
+      ul.innerHTML = navDraft.map((it, i) => `
+        <li class="we-nav-item${it.hidden ? " is-hidden" : ""}" data-i="${i}">
+          <div class="we-nav-item__left">
+            <button type="button" class="we-nav-item__arrow" data-a="up"   ${i === 0 ? "disabled" : ""} aria-label="Move up">↑</button>
+            <button type="button" class="we-nav-item__arrow" data-a="down" ${i === navDraft.length - 1 ? "disabled" : ""} aria-label="Move down">↓</button>
+          </div>
+          <div class="we-nav-item__body">
+            <strong>${escapeHtml(it.label)}</strong>
+            <small>${escapeHtml(it.href)} · ${it.kind === "custom" ? "custom page" : "site page"}</small>
+          </div>
+          <button type="button" class="we-nav-item__eye" data-a="toggle" aria-label="${it.hidden ? "Show" : "Hide"} in nav" title="${it.hidden ? "Show in nav" : "Hide from nav"}">
+            ${it.hidden
+              ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+              : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'}
+          </button>
+        </li>
+      `).join("");
+      ul.querySelectorAll("li[data-i]").forEach(li => {
+        const i = Number(li.dataset.i);
+        li.querySelectorAll("[data-a]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const a = btn.dataset.a;
+            if (a === "up" && i > 0) { [navDraft[i-1], navDraft[i]] = [navDraft[i], navDraft[i-1]]; }
+            else if (a === "down" && i < navDraft.length - 1) { [navDraft[i+1], navDraft[i]] = [navDraft[i], navDraft[i+1]]; }
+            else if (a === "toggle") { navDraft[i].hidden = !navDraft[i].hidden; }
+            renderNavList();
+          });
+        });
+      });
+    }
+    function bindNavModal() {
+      $("navMenuBtn").addEventListener("click", openNavModal);
+      document.querySelectorAll("#navModal [data-close]").forEach(el => el.addEventListener("click", closeNavModal));
+      $("nav_saveBtn").addEventListener("click", async () => {
+        const order  = navDraft.map(x => x.href);
+        const hidden = navDraft.filter(x => x.hidden).map(x => x.href);
+        $("nav_saveBtn").disabled = true;
+        try {
+          await AdminAPI.post("/api/admin/nav", { order, hidden });
+          closeNavModal();
+          flashStatus("Nav order saved — refresh any open page to see it live", "good");
+        } catch (err) {
+          $("nav_error").textContent = err.message;
+          $("nav_error").classList.remove("hidden");
+        } finally {
+          $("nav_saveBtn").disabled = false;
+        }
+      });
+    }
+
     (async () => {
       if (!(await requireSession())) return;
       await loadDynamicPages();
@@ -629,7 +774,11 @@
       bindMessages();
       bindNewPageModal();
       bindSectionMessages();
+      bindNavModal();
+      $("hidePageBtn").addEventListener("click", toggleCurrentPageHidden);
       loadTrash();
+      // Open Home in the iframe by default so the editor lands on a page.
+      openPage("/");
     })();
   </script>
 </body>

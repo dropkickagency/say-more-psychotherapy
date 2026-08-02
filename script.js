@@ -91,44 +91,74 @@ var __SM_EDIT_MODE__ = false;
     .then(reveal);
 })();
 
-// ---- Dynamic nav injection ---------------------------------------------
-// Any published page created via the website editor with a nav_label set
-// gets appended to the primary + mobile nav menus on every public page.
-// Runs on every load (small, cache-friendly). Skipped in edit mode so
-// the editor sees the raw HTML.
+// ---- Nav rebuilder -----------------------------------------------------
+// Fetches the admin-configured nav (order + hidden flags for both static
+// and custom pages) and rewrites the primary + mobile nav DOM. Static
+// links inside the Services dropdown are preserved untouched — only the
+// top-level nav order/visibility is under admin control here.
 (function () {
   if (__SM_EDIT_MODE__) return;
   if (/^\/admin(\/|$)/.test(window.location.pathname)) return;
 
+  var STATIC_HREFS = ['/', '/about', '/services', '/location', '/blog'];
+  var here = window.location.pathname.replace(/\/$/, '') || '/';
+
+  function isTopLevelStaticLink(a) {
+    if (!a) return false;
+    // Ignore anything inside the Services dropdown / mobile submenu — those
+    // stay as-is so the sub-page list under Services keeps working.
+    if (a.closest('.nav__dropdown')) return false;
+    if (a.closest('.nav__mobile__submenu')) return false;
+    var href = a.getAttribute('href') || '';
+    return STATIC_HREFS.indexOf(href.replace(/\/$/, '') || '/') !== -1;
+  }
+
+  function rebuild(list, items) {
+    if (!list) return;
+    // Snapshot the Services dropdown wrapper (it lives INSIDE nav.nav__links)
+    // so we can re-insert it in the right slot after clearing.
+    var servicesWrap = list.querySelector('.nav__item--has-dropdown');
+    var servicesMobile = list.querySelector('details.nav__mobile__submenu');
+    // Remove all top-level static <a> children — keep dropdown/wrap intact.
+    Array.from(list.children).forEach(function (child) {
+      if (child.tagName === 'A' && isTopLevelStaticLink(child)) child.remove();
+    });
+    // Re-append everything in the configured order.
+    items.forEach(function (it) {
+      if (it.href === '/services') {
+        if (servicesWrap && list.contains(servicesWrap) === false) list.appendChild(servicesWrap);
+        else if (servicesWrap) list.appendChild(servicesWrap);
+        else if (servicesMobile) list.appendChild(servicesMobile);
+        else appendPlain(list, it);
+      } else {
+        appendPlain(list, it);
+      }
+    });
+    // Hide the Services dropdown/mobile submenu if Services was excluded.
+    var servicesShown = items.some(function (it) { return it.href === '/services'; });
+    if (!servicesShown) {
+      if (servicesWrap) servicesWrap.remove();
+      if (servicesMobile) servicesMobile.remove();
+    }
+  }
+
+  function appendPlain(list, it) {
+    var a = document.createElement('a');
+    a.href = it.href;
+    a.textContent = it.label;
+    if ((here === it.href.replace(/\/$/, '') || (it.href === '/' && here === '/'))) a.classList.add('is-active');
+    list.appendChild(a);
+  }
+
   fetch('/api/pages', { cache: 'no-store' })
     .then(function (r) { return r.json(); })
     .then(function (d) {
-      var pages = (d && d.pages) || [];
-      if (!pages.length) return;
-      var desktop = document.querySelector('nav.nav__links');
-      var mobile  = document.querySelector('nav.nav__mobile__links');
-      var here = window.location.pathname.replace(/\/$/, '') || '/';
-      pages.forEach(function (p) {
-        var href = '/' + p.slug;
-        var label = p.nav_label || p.title || p.slug;
-        var isHere = here === href;
-        if (desktop && !desktop.querySelector('a[href="' + href + '"]')) {
-          var a = document.createElement('a');
-          a.href = href;
-          a.textContent = label;
-          if (isHere) a.classList.add('is-active');
-          desktop.appendChild(a);
-        }
-        if (mobile && !mobile.querySelector('a[href="' + href + '"]')) {
-          var b = document.createElement('a');
-          b.href = href;
-          b.textContent = label;
-          if (isHere) b.classList.add('is-active');
-          mobile.appendChild(b);
-        }
-      });
+      var items = (d && d.items) || [];
+      if (!items.length) return;
+      rebuild(document.querySelector('nav.nav__links'),        items);
+      rebuild(document.querySelector('nav.nav__mobile__links'), items);
     })
-    .catch(function () { /* silent */ });
+    .catch(function () { /* silent — nav falls back to the baked-in HTML */ });
 })();
 
 // ---- Analytics beacon (fire-and-forget, sends one row per page view) ----

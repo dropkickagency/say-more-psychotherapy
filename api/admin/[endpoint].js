@@ -909,6 +909,85 @@ async function handleSections(req, res) {
   return res.status(200).json({ ok: true, sections });
 }
 
+// ---- Nav-menu order + hide flags -------------------------------------
+// The site's nav is a mix of hardcoded static routes and user-authored
+// dynamic pages. The admin can reorder BOTH and hide individual items.
+// Storage: single row in site_settings keyed 'nav' whose value is
+//   { order: ["/", "/about", "/services", ...], hidden: ["/blog"] }
+// Any item not present in `order` gets appended at the end.
+
+// The canonical list of static routes the site knows about — kept in
+// sync with the top-of-file nav in every static HTML file.
+const STATIC_NAV = [
+  { href: "/",             label: "Home" },
+  { href: "/about",        label: "About" },
+  { href: "/services",     label: "Services" },
+  { href: "/location",     label: "Location" },
+  { href: "/blog",         label: "Blog" },
+];
+
+function buildNavItems(customRows, cfg) {
+  const custom = (customRows || []).map(p => ({
+    href:  "/" + p.slug,
+    label: p.nav_label || p.title,
+    kind:  "custom",
+    slug:  p.slug,
+  }));
+  const known = [...STATIC_NAV.map(x => ({ ...x, kind: "static" })), ...custom];
+  const knownByHref = new Map(known.map(x => [x.href, x]));
+  const order = Array.isArray(cfg.order) ? cfg.order : [];
+  const hidden = new Set(Array.isArray(cfg.hidden) ? cfg.hidden : []);
+  const seen = new Set();
+  const ordered = [];
+  order.forEach(h => {
+    if (knownByHref.has(h) && !seen.has(h)) {
+      ordered.push({ ...knownByHref.get(h), hidden: hidden.has(h) });
+      seen.add(h);
+    }
+  });
+  known.forEach(x => {
+    if (!seen.has(x.href)) ordered.push({ ...x, hidden: hidden.has(x.href) });
+  });
+  return ordered;
+}
+
+async function readNavConfig() {
+  const [row] = await sql`SELECT value FROM site_settings WHERE key = 'nav' LIMIT 1`;
+  return (row && row.value) || { order: [], hidden: [] };
+}
+
+async function handleNav(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (!assertDb(res)) return;
+  await ensureSchema();
+
+  if (req.method === "GET") {
+    const cfg = await readNavConfig();
+    const customRows = await sql`
+      SELECT slug, title, nav_label
+      FROM pages
+      WHERE deleted_at IS NULL AND nav_label IS NOT NULL AND nav_label <> ''
+      ORDER BY nav_order ASC, id ASC
+    `;
+    return res.status(200).json({ items: buildNavItems(customRows, cfg) });
+  }
+
+  if (req.method === "POST") {
+    const body = parseBody(req);
+    const order  = Array.isArray(body.order)  ? body.order.filter(x => typeof x === "string") : [];
+    const hidden = Array.isArray(body.hidden) ? body.hidden.filter(x => typeof x === "string") : [];
+    const value = JSON.stringify({ order, hidden });
+    await sql`
+      INSERT INTO site_settings (key, value, updated_at)
+      VALUES ('nav', ${value}::jsonb, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    `;
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(405).json({ error: "Method not allowed" });
+}
+
 // =============================================================
 // Router
 // =============================================================
@@ -925,6 +1004,7 @@ const ROUTES = {
   "edits":          handleEdits,
   "pages":          handlePages,
   "sections":       handleSections,
+  "nav":            handleNav,
   "section-library": async function(req, res) {
     if (!(await requireAdmin(req, res))) return;
     // Also expose the layout starters so the modal picker can render both.
