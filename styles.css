@@ -978,7 +978,7 @@ body.nav-open { overflow: hidden; }
   font-weight: 500;
   letter-spacing: 0;
   align-self: flex-start;
-  margin-top: 2px;
+  margin: 2px 0 0;
 }
 .service-card__price strong {
   font-family: var(--font-display);
@@ -1465,13 +1465,42 @@ a.tag:hover {
 .faq__item[open] .faq__q .chev { transform: rotate(180deg); }
 .faq__a {
   padding: 0 0 var(--space-lg);
+  margin: 0;
   color: var(--color-body);
   font-size: 16px;
   line-height: 1.65;
   max-width: 70ch;
+  white-space: pre-wrap;
 }
 .faq__item { list-style: none; }
 .faq__item::-webkit-details-marker { display: none; }
+
+/* Edit-mode FAQ controls (add / delete question) */
+.sm-edit-mode .sm-faq-list { position: relative; }
+.sm-edit-mode .sm-faq-list > details { position: relative; }
+.sm-faq-delete {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+  width: 26px; height: 26px; border-radius: 999px;
+  background: rgba(20, 17, 15, 0.72); color: #fff;
+  border: none; cursor: pointer; font-size: 14px; line-height: 1;
+  display: none; align-items: center; justify-content: center;
+  opacity: 0.9;
+}
+.sm-edit-mode .sm-faq-list > details:hover > .sm-faq-delete { display: inline-flex; }
+.sm-faq-delete:hover { background: rgba(200, 60, 60, 0.9); }
+.sm-faq-add {
+  display: block; margin: var(--space-md) auto 0;
+  background: var(--color-brand, #9B7045); color: #fff; border: none;
+  padding: 8px 20px; border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(155, 112, 69, 0.35);
+}
+.sm-faq-add:hover { background: #7c5836; }
+/* Never render these on the live site (belt + braces — they only get
+   created in edit mode, but sanitising just in case a patch preserves them) */
+html:not(.sm-edit-mode) .sm-faq-add,
+html:not(.sm-edit-mode) .sm-faq-delete { display: none !important; }
 
 /* ---------- Consultation form ---------- */
 .book { background: #F2F0EC; }

@@ -9,7 +9,7 @@
   if (qs.get("edit") !== "1") return;
   try { if (window.top === window.self) return; } catch (e) {}
 
-  var TEXT_TAGS = "h1, h2, h3, h4, h5, h6, p, li, a, span, blockquote, em, strong";
+  var TEXT_TAGS = "h1, h2, h3, h4, h5, h6, p, li, a, span, blockquote, em, strong, summary, label";
   var patches = new Map(); // element_path -> { element_type, new_content, original }
   var history = [];        // stack of { element_path, element_type, prev, next } — undo pops from the end
 
@@ -379,7 +379,9 @@
   function attachBackgroundEditors() {
     // Walk major container elements. Add an "edit background" chip
     // to anything with a real background-image (not gradient).
-    var candidates = document.querySelectorAll("section, header, aside, .hero, .cta, .foot, div[class*='hero'], div[class*='cta'], div[class*='bg']");
+    // Article + service-overlay cover the About page's mental-health
+    // cards, which use background-image on <article> (no <img> to click).
+    var candidates = document.querySelectorAll("section, header, aside, article, .hero, .cta, .foot, .service-overlay, div[class*='hero'], div[class*='cta'], div[class*='bg']");
     candidates.forEach(function (el) {
       if (el.closest(".sm-edit-toolbar")) return;
       var cs = getComputedStyle(el);
@@ -626,6 +628,99 @@
     });
   }
 
+  //---------- FAQ add / remove -----------------------------------
+  // Any container that holds multiple <details> elements (canonically
+  // .faq__list) gets a "+ Add question" pill at the bottom and a "×"
+  // per item. Mutations save the container's innerHTML as a normal
+  // text patch on its element_path — no new API surface needed.
+  function faqContainers() {
+    var out = [];
+    document.querySelectorAll(".faq__list, .sm-faq-list").forEach(function (c) { out.push(c); });
+    // Also fall back to any wrapper that contains multiple <details class="faq-*">
+    document.querySelectorAll("div").forEach(function (d) {
+      if (out.indexOf(d) !== -1) return;
+      var dets = d.querySelectorAll(":scope > details.faq__item, :scope > details.sm-faq");
+      if (dets.length >= 2) out.push(d);
+    });
+    return out;
+  }
+
+  var _faqOriginals = new Map();
+  function faqSnap(container) {
+    var path = elementPath(container);
+    if (!_faqOriginals.has(path)) _faqOriginals.set(path, container.innerHTML);
+    return { path: path, prev: container.innerHTML, origSnapshot: _faqOriginals.get(path) };
+  }
+  function faqCommit(container, snap) {
+    var newHtml = container.innerHTML;
+    if (newHtml === snap.prev) return;
+    var existing = patches.get(snap.path);
+    var origSnapshot = existing ? existing.original : snap.origSnapshot;
+    patches.set(snap.path, { element_type: "text", new_content: newHtml, original: origSnapshot });
+    pushHistory({ element_path: snap.path, element_type: "text", prev: snap.prev, next: newHtml, origSnapshot: origSnapshot });
+    markDirty();
+  }
+
+  function decorateFaqs() {
+    faqContainers().forEach(function (list) {
+      if (list.dataset.smFaqDecorated === "1") return;
+      list.dataset.smFaqDecorated = "1";
+      list.classList.add("sm-faq-list");
+
+      // Per-item delete
+      list.querySelectorAll(":scope > details").forEach(function (item) {
+        if (item.querySelector(":scope > .sm-faq-delete")) return;
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "sm-faq-delete";
+        btn.title = "Delete this question";
+        btn.setAttribute("aria-label", "Delete this question");
+        btn.innerHTML = "✕";
+        btn.addEventListener("click", function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          if (!confirm("Delete this question?")) return;
+          var snap = faqSnap(list);
+          item.remove();
+          faqCommit(list, snap);
+        });
+        item.appendChild(btn);
+      });
+
+      // "+ Add question" pill
+      var addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "sm-faq-add";
+      addBtn.innerHTML = "+ Add question";
+      addBtn.addEventListener("click", function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        var snap = faqSnap(list);
+        // Reuse the first item's class + summary shape so styling stays.
+        var template = list.querySelector(":scope > details");
+        var newItem = document.createElement("details");
+        newItem.className = (template && template.className) || "faq__item";
+        newItem.setAttribute("open", "");
+        var summary = document.createElement("summary");
+        var templateSummary = template && template.querySelector(":scope > summary");
+        summary.className = (templateSummary && templateSummary.className) || "faq__q";
+        // Copy chevron span if the template had one
+        var chev = templateSummary && templateSummary.querySelector(":scope > .chev");
+        summary.innerHTML = "New question" + (chev ? " " + chev.outerHTML : "");
+        newItem.appendChild(summary);
+        var answer = document.createElement("p");
+        answer.className = "faq__a";
+        answer.textContent = "New answer.";
+        newItem.appendChild(answer);
+        // Insert BEFORE our add button so it stays at the bottom
+        list.insertBefore(newItem, addBtn);
+        // Re-decorate the new item with a delete button + summary editor
+        decorateFaqs();
+        attachTextEditors();
+        faqCommit(list, snap);
+      });
+      list.appendChild(addBtn);
+    });
+  }
+
   //---------- Boot ----------
   async function boot() {
     document.documentElement.classList.add("sm-edit-mode");
@@ -636,6 +731,7 @@
     attachImageEditors();
     attachVideoEditors();
     attachBackgroundEditors();
+    decorateFaqs();
     decorateSections();
     decorateTestimonials();
     buildToolbar();

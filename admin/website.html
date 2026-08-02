@@ -824,22 +824,52 @@
     // Only meaningful for custom pages — we don't have publish state on
     // static routes. Sends a PATCH with { published: bool } and updates
     // the button label.
-    function updateHideButton() {
+    // Any active page qualifies for the Hide button — custom pages
+    // toggle pages.published, static pages toggle their nav.hidden entry
+    // via /api/admin/nav.
+    function isStaticPath(p) {
+      return ["/", "/about", "/services", "/location", "/blog", "/consultation", "/thank-you",
+              "/anxiety-therapy", "/depression-counselling", "/couples-therapy",
+              "/relationship-issues", "/perinatal-postpartum", "/mens-issues",
+              "/parenting", "/adhd", "/immigrants-identity"].indexOf(p) !== -1;
+    }
+    let _navHiddenCache = null;
+    async function loadNavHidden() {
+      if (_navHiddenCache) return _navHiddenCache;
+      try {
+        const data = await AdminAPI.get("/api/admin/nav");
+        _navHiddenCache = new Set((data.items || []).filter(x => x.hidden).map(x => x.href));
+      } catch { _navHiddenCache = new Set(); }
+      return _navHiddenCache;
+    }
+    async function updateHideButton() {
       const btn = $("hidePageBtn");
       const settingsBtn = $("settingsPageBtn");
+      const path = state.activePath;
+      if (!path) { btn.classList.add("hidden"); settingsBtn.classList.add("hidden"); return; }
       const slug = currentSlugIfCustom();
-      if (!slug) {
+      if (slug) {
+        // Custom page — Settings + Hide/Show live
+        const p = customPageMap.get(slug);
+        settingsBtn.classList.remove("hidden");
+        btn.classList.remove("hidden");
+        const hidden = p && p.published === false;
+        btn.textContent = hidden ? "Show on live site" : "Hide from live site";
+        btn.dataset.mode = "custom";
+        btn.classList.toggle("we-hide-btn--hidden", hidden);
+      } else if (isStaticPath(path)) {
+        // Static page — hide toggles nav visibility only
+        settingsBtn.classList.add("hidden");
+        btn.classList.remove("hidden");
+        const hiddenSet = await loadNavHidden();
+        const hidden = hiddenSet.has(path);
+        btn.textContent = hidden ? "Show in nav" : "Hide from nav";
+        btn.dataset.mode = "static";
+        btn.classList.toggle("we-hide-btn--hidden", hidden);
+      } else {
         btn.classList.add("hidden");
         settingsBtn.classList.add("hidden");
-        return;
       }
-      const p = customPageMap.get(slug);
-      if (!p) { btn.classList.add("hidden"); settingsBtn.classList.add("hidden"); return; }
-      btn.classList.remove("hidden");
-      settingsBtn.classList.remove("hidden");
-      const hidden = p.published === false;
-      btn.textContent = hidden ? "Show on live site" : "Hide from live site";
-      btn.classList.toggle("we-hide-btn--hidden", hidden);
     }
     function currentSlugIfCustom() {
       if (!state.activePath || !state.activePath.startsWith("/") || state.activePath === "/") return null;
@@ -847,21 +877,40 @@
       return customPageMap.has(slug) ? slug : null;
     }
     async function toggleCurrentPageHidden() {
-      const slug = currentSlugIfCustom();
-      if (!slug) return;
-      const p = customPageMap.get(slug);
-      const willHide = p.published !== false;
-      $("hidePageBtn").disabled = true;
+      const btn = $("hidePageBtn");
+      const mode = btn.dataset.mode;
+      const path = state.activePath;
+      btn.disabled = true;
       try {
-        await AdminAPI.patch("/api/admin/pages", { slug, published: !willHide });
-        await loadDynamicPages();
-        renderPageList();
-        updateHideButton();
-        flashStatus(willHide ? "Page hidden — no longer on live site" : "Page live again", "good");
+        if (mode === "custom") {
+          const slug = currentSlugIfCustom();
+          if (!slug) return;
+          const p = customPageMap.get(slug);
+          const willHide = p.published !== false;
+          await AdminAPI.patch("/api/admin/pages", { slug, published: !willHide });
+          await loadDynamicPages();
+          renderPageList();
+          _navHiddenCache = null;
+          await updateHideButton();
+          flashStatus(willHide ? "Page hidden — no longer on live site" : "Page live again", "good");
+        } else if (mode === "static") {
+          // Toggle this path's presence in nav.hidden via /api/admin/nav
+          const data = await AdminAPI.get("/api/admin/nav");
+          const items = data.items || [];
+          const willHide = !items.find(x => x.href === path && x.hidden);
+          const order  = items.map(x => x.href);
+          const hidden = items.filter(x => x.hidden).map(x => x.href);
+          const set = new Set(hidden);
+          if (willHide) set.add(path); else set.delete(path);
+          await AdminAPI.post("/api/admin/nav", { order, hidden: Array.from(set) });
+          _navHiddenCache = null;
+          await updateHideButton();
+          flashStatus(willHide ? "Hidden from nav" : "Shown in nav", "good");
+        }
       } catch (err) {
         flashStatus("Couldn't update visibility: " + err.message, "bad");
       } finally {
-        $("hidePageBtn").disabled = false;
+        btn.disabled = false;
       }
     }
 
@@ -921,7 +970,9 @@
         $("nav_saveBtn").disabled = true;
         try {
           await AdminAPI.post("/api/admin/nav", { order, hidden });
+          _navHiddenCache = null;
           closeNavModal();
+          await updateHideButton();
           flashStatus("Nav order saved — refresh any open page to see it live", "good");
         } catch (err) {
           $("nav_error").textContent = err.message;
