@@ -91,6 +91,46 @@ var __SM_EDIT_MODE__ = false;
     .then(reveal);
 })();
 
+// ---- Dynamic nav injection ---------------------------------------------
+// Any published page created via the website editor with a nav_label set
+// gets appended to the primary + mobile nav menus on every public page.
+// Runs on every load (small, cache-friendly). Skipped in edit mode so
+// the editor sees the raw HTML.
+(function () {
+  if (__SM_EDIT_MODE__) return;
+  if (/^\/admin(\/|$)/.test(window.location.pathname)) return;
+
+  fetch('/api/pages', { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var pages = (d && d.pages) || [];
+      if (!pages.length) return;
+      var desktop = document.querySelector('nav.nav__links');
+      var mobile  = document.querySelector('nav.nav__mobile__links');
+      var here = window.location.pathname.replace(/\/$/, '') || '/';
+      pages.forEach(function (p) {
+        var href = '/' + p.slug;
+        var label = p.nav_label || p.title || p.slug;
+        var isHere = here === href;
+        if (desktop && !desktop.querySelector('a[href="' + href + '"]')) {
+          var a = document.createElement('a');
+          a.href = href;
+          a.textContent = label;
+          if (isHere) a.classList.add('is-active');
+          desktop.appendChild(a);
+        }
+        if (mobile && !mobile.querySelector('a[href="' + href + '"]')) {
+          var b = document.createElement('a');
+          b.href = href;
+          b.textContent = label;
+          if (isHere) b.classList.add('is-active');
+          mobile.appendChild(b);
+        }
+      });
+    })
+    .catch(function () { /* silent */ });
+})();
+
 // ---- Analytics beacon (fire-and-forget, sends one row per page view) ----
 // Skips admin pages and anything triggered by a Vercel prerender / build.
 (function () {

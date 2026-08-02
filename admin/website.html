@@ -24,7 +24,10 @@
       <p class="we-sidebar__sub">Click text, images, videos, or section backgrounds on the right to edit them. Save keeps a draft; Publish makes it live.</p>
 
       <div class="we-page-picker">
-        <div class="we-page-picker__label">Pages</div>
+        <div class="we-page-picker__header">
+          <div class="we-page-picker__label">Pages</div>
+          <button type="button" id="newPageBtn" class="btn btn--sm we-newpage-btn">+ New</button>
+        </div>
         <ul id="pageList" class="we-page-list"><li class="loading">Loading pages…</li></ul>
       </div>
 
@@ -36,10 +39,89 @@
           <li><strong>Backgrounds</strong>: hover a section → click <em>Change background</em>.</li>
           <li><strong>Save</strong>: stores drafts. Not visible on the live site.</li>
           <li><strong>Publish</strong>: marks everything on this page as live. Visitors see it immediately.</li>
+          <li><strong>New page</strong>: pick a starter layout, name it, and it'll appear in the nav.</li>
         </ul>
-        <p class="we-help__note">Section templates (add/remove full sections) coming next.</p>
+        <p class="we-help__note">Section library (swap / add / reorder blocks) coming next.</p>
       </div>
     </aside>
+
+    <!-- MODAL: create new page -->
+    <div id="newPageModal" class="we-modal hidden" role="dialog" aria-modal="true" aria-labelledby="newPageTitle">
+      <div class="we-modal__backdrop" data-close></div>
+      <div class="we-modal__card">
+        <div class="we-modal__head">
+          <h2 id="newPageTitle">Create a new page</h2>
+          <button type="button" class="we-modal__close" data-close aria-label="Close">✕</button>
+        </div>
+        <div class="we-modal__body">
+          <div class="we-field">
+            <label for="np_title">Page title</label>
+            <input id="np_title" type="text" placeholder="e.g. Wellness Programs" maxlength="80" />
+            <div class="we-field__hint">Shown in the browser tab and as the page's H1.</div>
+          </div>
+          <div class="we-field">
+            <label for="np_slug">URL slug</label>
+            <div class="we-field__slug-wrap">
+              <span class="we-field__slug-prefix">/</span>
+              <input id="np_slug" type="text" placeholder="wellness-programs" maxlength="60" />
+            </div>
+            <div class="we-field__hint">Auto-generated from the title — you can override it.</div>
+          </div>
+          <div class="we-field">
+            <label>
+              <input type="checkbox" id="np_add_to_nav" checked />
+              Add to the site's nav menu
+            </label>
+          </div>
+
+          <div class="we-field">
+            <label>Starter layout</label>
+            <div class="we-layouts">
+              <button type="button" class="we-layout" data-layout="blank">
+                <div class="we-layout__thumb we-layout__thumb--blank"></div>
+                <div class="we-layout__meta">
+                  <strong>Blank</strong>
+                  <small>Start with a clean slate.</small>
+                </div>
+              </button>
+              <button type="button" class="we-layout is-active" data-layout="landing">
+                <div class="we-layout__thumb we-layout__thumb--landing">
+                  <span></span><span></span><span></span>
+                </div>
+                <div class="we-layout__meta">
+                  <strong>Landing</strong>
+                  <small>Hero, value prop, CTA.</small>
+                </div>
+              </button>
+              <button type="button" class="we-layout" data-layout="content">
+                <div class="we-layout__thumb we-layout__thumb--content">
+                  <span></span><span class="tall"></span><span></span>
+                </div>
+                <div class="we-layout__meta">
+                  <strong>Long content</strong>
+                  <small>Hero + long text + CTA.</small>
+                </div>
+              </button>
+              <button type="button" class="we-layout" data-layout="split">
+                <div class="we-layout__thumb we-layout__thumb--split">
+                  <span></span><span class="split"></span><span></span>
+                </div>
+                <div class="we-layout__meta">
+                  <strong>Image + text</strong>
+                  <small>Hero + image/text + CTA.</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div id="np_error" class="we-modal__error hidden"></div>
+        </div>
+        <div class="we-modal__foot">
+          <button type="button" class="btn btn--ghost btn--sm" data-close>Cancel</button>
+          <button type="button" class="btn btn--sm" id="np_createBtn">Create page</button>
+        </div>
+      </div>
+    </div>
 
     <!-- RIGHT: live iframe -->
     <main class="we-canvas">
@@ -72,7 +154,7 @@
 
   <script src="/admin/admin.js"></script>
   <script>
-    const PAGES = [
+    const STATIC_PAGES = [
       { path: "/",                      label: "Home" },
       { path: "/about",                 label: "About" },
       { path: "/services",              label: "Services" },
@@ -90,23 +172,67 @@
       { path: "/immigrants-identity",   label: "Immigrants & Identity" },
     ];
 
-    const state = { activePath: null, dirty: 0, history: 0 };
+    // Runtime page list = static pages + user-created dynamic pages.
+    // Dynamic pages are loaded from /api/admin/pages on boot and after
+    // every create/delete.
+    let PAGES = STATIC_PAGES.slice();
+    const state = { activePath: null, dirty: 0, history: 0, layout: "landing" };
     const $ = (id) => document.getElementById(id);
+
+    async function loadDynamicPages() {
+      try {
+        const data = await AdminAPI.get("/api/admin/pages");
+        const custom = (data.pages || []).map(p => ({
+          path: "/" + p.slug,
+          label: p.title,
+          custom: true,
+          slug: p.slug,
+        }));
+        PAGES = STATIC_PAGES.concat(custom);
+      } catch (err) {
+        console.warn("loadDynamicPages:", err && err.message);
+      }
+    }
 
     function renderPageList() {
       const ul = $("pageList");
       ul.innerHTML = PAGES.map(p => `
         <li>
-          <button type="button" class="we-page-btn${state.activePath === p.path ? ' is-active' : ''}" data-path="${p.path}">
-            <span class="we-page-btn__label">${escapeHtml(p.label)}</span>
+          <button type="button" class="we-page-btn${state.activePath === p.path ? ' is-active' : ''}" data-path="${escapeHtml(p.path)}"${p.custom ? ` data-slug="${escapeHtml(p.slug)}"` : ""}>
+            <span class="we-page-btn__label">${escapeHtml(p.label)}${p.custom ? '<span class="we-page-btn__badge">custom</span>' : ""}</span>
             <span class="we-page-btn__slug">${escapeHtml(p.path)}</span>
+            ${p.custom ? `<button type="button" class="we-page-btn__delete" data-delete="${escapeHtml(p.slug)}" title="Delete page" aria-label="Delete page">✕</button>` : ""}
           </button>
         </li>
       `).join("");
       ul.querySelectorAll(".we-page-btn").forEach(b => {
-        b.addEventListener("click", () => {
+        b.addEventListener("click", (ev) => {
+          // Ignore clicks on the delete button — its own handler runs.
+          if (ev.target.closest("[data-delete]")) return;
           if (state.dirty > 0 && !confirm("You have " + state.dirty + " unsaved change(s). Discard and switch pages?")) return;
           openPage(b.dataset.path);
+        });
+      });
+      ul.querySelectorAll("[data-delete]").forEach(btn => {
+        btn.addEventListener("click", async (ev) => {
+          ev.stopPropagation();
+          const slug = btn.dataset.delete;
+          if (!confirm(`Delete /${slug}? This removes it from the site and the nav.`)) return;
+          try {
+            await AdminAPI.del("/api/admin/pages?slug=" + encodeURIComponent(slug));
+            if (state.activePath === "/" + slug) {
+              state.activePath = null;
+              $("framePlaceholder").classList.remove("hidden");
+              $("previewFrame").classList.add("hidden");
+              $("currentPage").textContent = "Select a page →";
+              $("viewLive").classList.add("hidden");
+            }
+            await loadDynamicPages();
+            renderPageList();
+            flashStatus("Page deleted", "good");
+          } catch (err) {
+            flashStatus("Delete failed: " + err.message, "bad");
+          }
         });
       });
     }
@@ -214,11 +340,87 @@
       });
     }
 
+    // ---- New page modal ----
+    function slugify(s) {
+      return String(s || "").toLowerCase().trim()
+        .replace(/['"]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60);
+    }
+    function openNewPageModal() {
+      $("np_title").value = "";
+      $("np_slug").value = "";
+      $("np_add_to_nav").checked = true;
+      $("np_error").classList.add("hidden");
+      state.layout = "landing";
+      document.querySelectorAll(".we-layout").forEach(el => {
+        el.classList.toggle("is-active", el.dataset.layout === state.layout);
+      });
+      $("newPageModal").classList.remove("hidden");
+      setTimeout(() => $("np_title").focus(), 20);
+    }
+    function closeNewPageModal() { $("newPageModal").classList.add("hidden"); }
+    function bindNewPageModal() {
+      $("newPageBtn").addEventListener("click", openNewPageModal);
+      document.querySelectorAll("#newPageModal [data-close]").forEach(el => {
+        el.addEventListener("click", closeNewPageModal);
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !$("newPageModal").classList.contains("hidden")) closeNewPageModal();
+      });
+      // Layout picker
+      document.querySelectorAll(".we-layout").forEach(el => {
+        el.addEventListener("click", () => {
+          document.querySelectorAll(".we-layout").forEach(x => x.classList.remove("is-active"));
+          el.classList.add("is-active");
+          state.layout = el.dataset.layout;
+        });
+      });
+      // Auto-fill slug from title until user overrides it
+      let slugDirty = false;
+      $("np_slug").addEventListener("input", () => { slugDirty = true; });
+      $("np_title").addEventListener("input", () => {
+        if (!slugDirty) $("np_slug").value = slugify($("np_title").value);
+      });
+      // Create
+      $("np_createBtn").addEventListener("click", async () => {
+        const title = $("np_title").value.trim();
+        const slug = slugify($("np_slug").value || title);
+        const addToNav = $("np_add_to_nav").checked;
+        const errEl = $("np_error");
+        errEl.classList.add("hidden");
+        if (!title) { errEl.textContent = "Please enter a title."; errEl.classList.remove("hidden"); return; }
+        if (!slug)  { errEl.textContent = "Slug is empty. Add a letter or number to the title."; errEl.classList.remove("hidden"); return; }
+        $("np_createBtn").disabled = true;
+        $("np_createBtn").textContent = "Creating…";
+        try {
+          const res = await AdminAPI.post("/api/admin/pages", {
+            title, slug, layout: state.layout,
+            nav_label: addToNav ? title : null,
+          });
+          closeNewPageModal();
+          await loadDynamicPages();
+          renderPageList();
+          openPage("/" + res.page.slug);
+          flashStatus("Page created — start editing", "good");
+        } catch (err) {
+          errEl.textContent = err.message || "Couldn't create page.";
+          errEl.classList.remove("hidden");
+        } finally {
+          $("np_createBtn").disabled = false;
+          $("np_createBtn").textContent = "Create page";
+        }
+      });
+    }
+
     (async () => {
       if (!(await requireSession())) return;
+      await loadDynamicPages();
       renderPageList();
       bindTopBarActions();
       bindMessages();
+      bindNewPageModal();
     })();
   </script>
 </body>

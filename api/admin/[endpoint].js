@@ -10,6 +10,7 @@ import {
   requireAdmin,
 } from "../../lib/auth.js";
 import { put } from "@vercel/blob";
+import { LAYOUTS } from "../../lib/render-page.js";
 
 // Needed by the upload-image handler; applies to all endpoints handled
 // here — every other endpoint's body is small JSON so a larger limit
@@ -692,6 +693,118 @@ async function handleEdits(req, res) {
   return res.status(405).json({ error: "Method not allowed." });
 }
 
+// ---- Pages (user-authored dynamic pages) ----
+// Reserved slugs that would collide with static routes or api paths.
+const RESERVED_SLUGS = new Set([
+  "", "api", "admin", "assets", "_vercel", "blog",
+  "about", "services", "location", "consultation", "index",
+  "anxiety-therapy", "depression-counselling", "couples-therapy",
+  "relationship-issues", "perinatal-postpartum", "mens-issues",
+  "parenting", "adhd", "immigrants-identity", "thank-you",
+  "sitemap", "robots", "logo",
+]);
+
+function normaliseSlug(input) {
+  return String(input || "")
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+async function handlePages(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (!assertDb(res)) return;
+  await ensureSchema();
+
+  const method = req.method || "GET";
+
+  if (method === "GET") {
+    const slug = req.query && req.query.slug ? normaliseSlug(req.query.slug) : "";
+    if (slug) {
+      const [row] = await sql`SELECT * FROM pages WHERE slug = ${slug} LIMIT 1`;
+      if (!row) return res.status(404).json({ error: "Page not found." });
+      return res.status(200).json({ page: row });
+    }
+    const rows = await sql`
+      SELECT id, slug, title, nav_label, nav_order, published, updated_at, created_at
+      FROM pages ORDER BY nav_order ASC, id ASC
+    `;
+    return res.status(200).json({ pages: rows });
+  }
+
+  if (method === "POST") {
+    const body = parseBody(req);
+    const slug = normaliseSlug(body.slug || body.title);
+    const title = String(body.title || "").trim();
+    const layoutKey = String(body.layout || "blank").toLowerCase();
+    const navLabel = body.nav_label === undefined ? title : (body.nav_label ? String(body.nav_label).trim() : null);
+    const navOrder = Number.isFinite(body.nav_order) ? Math.round(body.nav_order) : 100;
+
+    if (!title) return res.status(400).json({ error: "Title is required." });
+    if (!slug) return res.status(400).json({ error: "Slug must contain at least one letter or number." });
+    if (RESERVED_SLUGS.has(slug)) return res.status(409).json({ error: `"/${slug}" is reserved — pick a different slug.` });
+
+    const layout = LAYOUTS[layoutKey] || LAYOUTS.blank;
+    const sections = JSON.stringify(layout.sections || []);
+
+    try {
+      const [row] = await sql`
+        INSERT INTO pages (slug, title, nav_label, nav_order, sections)
+        VALUES (${slug}, ${title}, ${navLabel || null}, ${navOrder}, ${sections}::jsonb)
+        RETURNING id, slug, title, nav_label, nav_order, published, updated_at
+      `;
+      return res.status(200).json({ ok: true, page: row });
+    } catch (err) {
+      if (String(err.message || "").includes("duplicate")) {
+        return res.status(409).json({ error: `A page at "/${slug}" already exists.` });
+      }
+      throw err;
+    }
+  }
+
+  if (method === "PATCH") {
+    const body = parseBody(req);
+    const slug = normaliseSlug(body.slug || (req.query && req.query.slug));
+    if (!slug) return res.status(400).json({ error: "Slug required." });
+
+    const [current] = await sql`SELECT * FROM pages WHERE slug = ${slug} LIMIT 1`;
+    if (!current) return res.status(404).json({ error: "Page not found." });
+
+    const nextTitle       = typeof body.title === "string"           ? body.title.trim()                                : current.title;
+    const nextNavLabel    = body.nav_label !== undefined              ? (body.nav_label ? String(body.nav_label).trim() : null) : current.nav_label;
+    const nextNavOrder    = body.nav_order !== undefined              ? Math.round(Number(body.nav_order) || 100)        : current.nav_order;
+    const nextMeta        = typeof body.meta_description === "string" ? body.meta_description                            : current.meta_description;
+    const nextPublished   = typeof body.published === "boolean"       ? body.published                                   : current.published;
+    const nextSections    = Array.isArray(body.sections)              ? JSON.stringify(body.sections)                    : JSON.stringify(current.sections);
+
+    const [row] = await sql`
+      UPDATE pages
+      SET title            = ${nextTitle},
+          nav_label        = ${nextNavLabel},
+          nav_order        = ${nextNavOrder},
+          meta_description = ${nextMeta},
+          published        = ${nextPublished},
+          sections         = ${nextSections}::jsonb,
+          updated_at       = NOW()
+      WHERE slug = ${slug}
+      RETURNING id, slug, title, nav_label, nav_order, published, updated_at
+    `;
+    return res.status(200).json({ ok: true, page: row });
+  }
+
+  if (method === "DELETE") {
+    const slug = normaliseSlug((req.query && req.query.slug) || "");
+    if (!slug) return res.status(400).json({ error: "Slug required." });
+    const r = await sql`DELETE FROM pages WHERE slug = ${slug}`;
+    return res.status(200).json({ ok: true, deleted: (r && r.count) || 0 });
+  }
+
+  return res.status(405).json({ error: "Method not allowed." });
+}
+
 // =============================================================
 // Router
 // =============================================================
@@ -706,6 +819,7 @@ const ROUTES = {
   "insights":       handleInsights,
   "seed-insights":  handleSeedInsights,
   "edits":          handleEdits,
+  "pages":          handlePages,
 };
 
 export default async function handler(req, res) {
