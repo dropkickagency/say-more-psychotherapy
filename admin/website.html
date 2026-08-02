@@ -816,6 +816,34 @@
           return;
         }
 
+        // Move up/down on any top-level section on a static page.
+        // Saved as a `swap` content patch (draft), anchored to the
+        // section's current nth-of-type. Patches apply in created_at
+        // ASC order so chained swaps produce the visual ordering the
+        // user built one click at a time.
+        if (d.type === "sm-static-move") {
+          const direction = d.direction === "down" ? "down" : "up";
+          const anchor = String(d.anchor || "");
+          if (!anchor) return;
+          try {
+            const uniq = "swap-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+            await AdminAPI.post("/api/admin/edits", {
+              page_path: state.activePath,
+              publish: false,
+              patches: [{
+                element_path: anchor + " || " + uniq,
+                element_type: "swap",
+                new_content: direction,
+              }],
+            });
+            reloadIframe();
+            flashStatus("Section moved " + direction + " — click Publish to make it live", "good");
+          } catch (err) {
+            flashStatus("Move failed: " + err.message, "bad");
+          }
+          return;
+        }
+
         // Delete / duplicate on a content-patch-inserted section.
         // Works on ANY page (static or dynamic) — the section carries
         // its patch id from applyExistingPatches.

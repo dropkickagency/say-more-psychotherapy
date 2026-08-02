@@ -468,6 +468,21 @@
       var json = await res.json();
       (json.patches || []).forEach(function (p) {
         try {
+          // Swap sibling sections (up/down move) — see script.js note.
+          if (p.element_type === "swap") {
+            var swapSel = String(p.element_path || "").split("||")[0].trim();
+            var swapEl = document.querySelector(swapSel);
+            if (!swapEl) return;
+            var dir = String(p.new_content || "up").toLowerCase();
+            var sib = dir === "down" ? swapEl.nextElementSibling : swapEl.previousElementSibling;
+            while (sib && sib.tagName !== "SECTION") {
+              sib = dir === "down" ? sib.nextElementSibling : sib.previousElementSibling;
+            }
+            if (!sib) return;
+            if (dir === "down") swapEl.parentNode.insertBefore(sib, swapEl);
+            else swapEl.parentNode.insertBefore(swapEl, sib);
+            return;
+          }
           // Insert-* patches don't overwrite; they add adjacent HTML.
           // element_path has a "|| ins-…" uniqueness suffix — strip it.
           if (p.element_type === "insert-after" || p.element_type === "insert-before") {
@@ -570,37 +585,71 @@
     }
   }
 
+  // Helper: attach a floating toolbar to a top-level section.
+  // `buttons` is an array of {a, label, title, danger?} descriptors.
+  // On click, posts `msg(action, anchor)` to the parent.
+  function attachSectionToolbar(sec, buttons, msg) {
+    if (sec.querySelector(":scope > .sm-section-toolbar")) return;
+    var bar = document.createElement("div");
+    bar.className = "sm-section-toolbar";
+    bar.innerHTML = buttons.map(function (b) {
+      return '<button type="button" data-a="' + b.a + '" title="' + b.title + '"' + (b.danger ? ' class="is-danger"' : '') + '>' + b.label + '</button>';
+    }).join("");
+    bar.querySelectorAll("button").forEach(function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        var action = btn.dataset.a;
+        if (action === "delete" && !confirm("Delete this section?")) return;
+        msg(action);
+      });
+    });
+    var cs = getComputedStyle(sec);
+    if (cs.position === "static") sec.style.position = "relative";
+    sec.appendChild(bar);
+  }
+
+  // Native <section> children of body on static pages get a compact
+  // up/down toolbar so the user can reorder any built-in section.
+  // Skip elements already tagged as inserted (they get the richer
+  // toolbar via decorateInsertedSections).
+  function decorateStaticNativeSections() {
+    if (window.__SM_DYNAMIC_PAGE__) return;
+    var sections = Array.from(document.querySelectorAll("body > section:not([data-sm-inserted])"));
+    sections.forEach(function (sec, i) {
+      sec.setAttribute("data-sm-static", "1");
+      var buttons = [];
+      if (i > 0) buttons.push({ a: "up",   label: "↑", title: "Move up" });
+      if (i < sections.length - 1) buttons.push({ a: "down", label: "↓", title: "Move down" });
+      if (!buttons.length) return;
+      attachSectionToolbar(sec, buttons, function (action) {
+        post({ type: "sm-static-move", direction: action, anchor: elementPath(sec) });
+      });
+    });
+  }
+
   // Sections inserted via content-patch (data-sm-inserted="1") get a
-  // small floating toolbar with duplicate + delete. Reuses the same
-  // .sm-section-toolbar styling as dynamic-page section toolbars.
-  // Runs after applyExistingPatches has attached the data attributes.
+  // toolbar with move-up / move-down / duplicate / delete. Reuses
+  // .sm-section-toolbar styling.
   function decorateInsertedSections() {
     document.querySelectorAll("section[data-sm-inserted='1']").forEach(function (sec) {
-      if (sec.querySelector(":scope > .sm-section-toolbar")) return;
       var patchId = sec.getAttribute("data-sm-patch-id") || "";
-      var bar = document.createElement("div");
-      bar.className = "sm-section-toolbar";
-      bar.innerHTML =
-        '<button type="button" data-a="duplicate" title="Duplicate this section">⧉</button>' +
-        '<button type="button" data-a="delete" class="is-danger" title="Delete this section">✕</button>';
-      bar.querySelectorAll("button").forEach(function (b) {
-        b.addEventListener("click", function (ev) {
-          ev.preventDefault(); ev.stopPropagation();
-          var action = b.dataset.a;
-          if (action === "delete" && !confirm("Delete this section?")) return;
-          post({
-            type: "sm-insert-action",
-            action: action,
-            patchId: patchId,
-            anchor: elementPath(sec),
-          });
-        });
+      var hasPrev = false, hasNext = false;
+      var s = sec.previousElementSibling;
+      while (s) { if (s.tagName === "SECTION") { hasPrev = true; break; } s = s.previousElementSibling; }
+      s = sec.nextElementSibling;
+      while (s) { if (s.tagName === "SECTION") { hasNext = true; break; } s = s.nextElementSibling; }
+      var buttons = [];
+      if (hasPrev) buttons.push({ a: "up",   label: "↑", title: "Move up" });
+      if (hasNext) buttons.push({ a: "down", label: "↓", title: "Move down" });
+      buttons.push({ a: "duplicate", label: "⧉", title: "Duplicate this section" });
+      buttons.push({ a: "delete",    label: "✕", title: "Delete this section", danger: true });
+      attachSectionToolbar(sec, buttons, function (action) {
+        if (action === "up" || action === "down") {
+          post({ type: "sm-static-move", direction: action, anchor: elementPath(sec) });
+        } else {
+          post({ type: "sm-insert-action", action: action, patchId: patchId, anchor: elementPath(sec) });
+        }
       });
-      // Make the section positioning context so absolutely-positioned
-      // toolbar sits inside it.
-      var cs = getComputedStyle(sec);
-      if (cs.position === "static") sec.style.position = "relative";
-      sec.appendChild(bar);
     });
   }
 
@@ -819,6 +868,7 @@
     decorateFaqs();
     decorateSections();
     decorateStaticSections();
+    decorateStaticNativeSections();
     decorateInsertedSections();
     decorateTestimonials();
     buildToolbar();

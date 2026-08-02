@@ -57,6 +57,25 @@ var __SM_EDIT_MODE__ = false;
     applied = true;
     patches.forEach(function (p) {
       try {
+        // Swap moves a top-level section up (with its previous section
+        // sibling) or down (next section sibling). element_path stores the
+        // section's nth-of-type at authoring time — apply order is ASC by
+        // created_at so earlier swaps have already reshaped the DOM by
+        // the time a later swap resolves its anchor.
+        if (p.element_type === 'swap') {
+          var swapSel = insertSelector(p.element_path);
+          var swapEl = document.querySelector(swapSel);
+          if (!swapEl) return;
+          var dir = String(p.new_content || 'up').toLowerCase();
+          var sib = dir === 'down' ? swapEl.nextElementSibling : swapEl.previousElementSibling;
+          while (sib && sib.tagName !== 'SECTION') {
+            sib = dir === 'down' ? sib.nextElementSibling : sib.previousElementSibling;
+          }
+          if (!sib) return;
+          if (dir === 'down') swapEl.parentNode.insertBefore(sib, swapEl);
+          else swapEl.parentNode.insertBefore(swapEl, sib);
+          return;
+        }
         // Insert-* patches don't overwrite an existing element — they
         // add a new section adjacent to the anchor.
         if (p.element_type === 'insert-after' || p.element_type === 'insert-before') {
