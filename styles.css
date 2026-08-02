@@ -3115,6 +3115,70 @@ a.tag:hover {
 .sm-edit-mode .sm-bg-edit-chip:hover { opacity: 1; }
 .sm-edit-mode .sm-editable-bg.sm-uploading { opacity: 0.6; }
 
+/* -----------------------------------------------------------------
+   In-iframe section-level editor UI (dynamic pages only)
+   Rendered by admin/edit-mode.js:decorateSections(). Loaded on the
+   public site so it applies inside the ?edit=1 iframe.
+   ----------------------------------------------------------------- */
+.sm-edit-mode .sm-section { position: relative; }
+.sm-edit-mode .sm-section-toolbar {
+  position: absolute; top: 12px; right: 12px; z-index: 40;
+  display: none; gap: 4px;
+  background: rgba(20, 17, 15, 0.90);
+  border-radius: 999px; padding: 4px 6px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.30);
+}
+.sm-edit-mode .sm-section:hover > .sm-section-toolbar { display: flex; }
+.sm-edit-mode .sm-section-toolbar button {
+  width: 28px; height: 28px; border-radius: 999px;
+  background: transparent; color: #fff; border: none; cursor: pointer;
+  font-family: inherit; font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sm-edit-mode .sm-section-toolbar button:hover { background: rgba(255,255,255,0.15); }
+.sm-edit-mode .sm-section-toolbar button.is-danger:hover { background: rgba(220, 90, 80, 0.35); }
+
+/* Hover-only "+" between sections. Idle: a thin, empty 24px gap. Hover:
+   a horizontal accent line + a circular + button fade in. */
+.sm-edit-mode .sm-section-inserter {
+  position: relative; z-index: 30;
+  height: 24px;
+  display: block;
+  pointer-events: auto;
+}
+.sm-edit-mode .sm-section-inserter::before {
+  content: "";
+  position: absolute; left: 6%; right: 6%; top: 50%; height: 1px;
+  background: transparent;
+  transition: background 120ms;
+  pointer-events: none;
+}
+.sm-edit-mode .sm-section-inserter:hover::before {
+  background: rgba(155, 112, 69, 0.55);
+}
+.sm-edit-mode .sm-section-inserter button {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%) scale(0.6);
+  width: 32px; height: 32px; padding: 0;
+  border-radius: 999px; border: none;
+  background: #9B7045; color: #fff;
+  font-family: inherit; line-height: 1; font-weight: 400;
+  cursor: pointer;
+  opacity: 0; pointer-events: none;
+  transition: opacity 120ms, transform 120ms;
+  box-shadow: 0 4px 14px rgba(155, 112, 69, 0.45);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+/* CSS supplies the "+" glyph so the button DOM stays empty */
+.sm-edit-mode .sm-section-inserter button::before {
+  content: "+"; font-size: 22px; margin-top: -2px;
+}
+.sm-edit-mode .sm-section-inserter:hover button {
+  opacity: 1; transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+}
+.sm-edit-mode .sm-section-inserter button:hover { background: #7c5836; }
+
 /* ---------- Soft pink page background helper ---------- */
 .bg-pink { background: linear-gradient(180deg, #FBEEEA 0%, #F7DFD7 100%); }
 .bg-surface { background: var(--color-surface); }

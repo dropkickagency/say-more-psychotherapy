@@ -531,7 +531,8 @@
       if (!refNode || !refNode.parentNode) return;
       var host = document.createElement("div");
       host.className = "sm-section-inserter";
-      host.innerHTML = '<button type="button">+ Add section</button>';
+      // Empty button — CSS ::before renders the "+" so hover styling stays in one place.
+      host.innerHTML = '<button type="button" aria-label="Add section"></button>';
       host.querySelector("button").addEventListener("click", function (ev) {
         ev.preventDefault(); ev.stopPropagation();
         post({ type: "sm-open-section-picker", index: index });
