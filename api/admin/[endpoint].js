@@ -310,18 +310,36 @@ async function handleUploadImage(req, res) {
     return res.status(200).json({ url: blob.url, size: buffer.length, contentType: mime, storage: "blob" });
   }
 
-  // Videos are too big for base64 inline fallback — reject cleanly.
+  // Videos are too big for BYTEA — reject cleanly (they still need Blob).
   if (isVideo) {
     return res.status(501).json({
       error: "Video uploads need Vercel Blob storage. In your Vercel dashboard → Storage → connect a Blob store to this project, then redeploy.",
     });
   }
 
-  const dataUrl = `data:${mime};base64,${data}`;
-  return res.status(200).json({
-    url: dataUrl, size: buffer.length, contentType: mime, storage: "inline",
-    warning: "Vercel Blob isn't configured, so this image is embedded inline. Enable Blob later for faster performance.",
-  });
+  // Fallback: store the image binary in Postgres so patches reference
+  // /api/asset/N (~13 bytes) instead of an inline base64 URL (MBs).
+  // Massive win for /api/edits payload size and page load time.
+  try {
+    if (!sql) throw new Error("Database not configured");
+    await ensureSchema();
+    const rows = await sql`
+      INSERT INTO assets (mime, filename, data, size)
+      VALUES (${mime}, ${filename || null}, ${buffer}, ${buffer.length})
+      RETURNING id
+    `;
+    return res.status(200).json({
+      url: `/api/asset/${rows[0].id}`,
+      size: buffer.length,
+      contentType: mime,
+      storage: "postgres",
+    });
+  } catch (err) {
+    console.error("asset insert failed:", err);
+    return res.status(500).json({
+      error: "Couldn't store the image. Please try a smaller file, or set up Vercel Blob for larger uploads.",
+    });
+  }
 }
 
 // ---- Insights (aggregations from page_views) ----
@@ -931,6 +949,60 @@ async function handleSections(req, res) {
   return res.status(200).json({ ok: true, sections });
 }
 
+// ---- One-shot migrator: base64 data URL patches → /api/asset/N -------
+// Called in a loop from admin/website.html on editor boot. Processes
+// ONE patch per invocation so we never hit Vercel's 10s function cap
+// (a single 8 MB base64 decode + INSERT can take a few seconds).
+async function handleMigratePatches(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (!assertDb(res)) return;
+  await ensureSchema();
+
+  // How many still to migrate?
+  const [meta] = await sql`
+    SELECT COUNT(*)::int AS n FROM content_patches
+    WHERE new_content LIKE 'data:%'
+  `;
+  if (meta.n === 0) return res.status(200).json({ ok: true, migrated: 0, remaining: 0, done: true });
+
+  // Grab the smallest one first so per-request work stays bounded.
+  const [target] = await sql`
+    SELECT id, new_content
+    FROM content_patches
+    WHERE new_content LIKE 'data:%'
+    ORDER BY LENGTH(new_content) ASC
+    LIMIT 1
+  `;
+  if (!target) return res.status(200).json({ ok: true, migrated: 0, remaining: 0, done: true });
+
+  const raw = String(target.new_content || "");
+  const m = raw.match(/^data:([^;]+);base64,(.*)$/);
+  if (!m) {
+    // Not a well-formed data URL — clear it so we don't loop forever.
+    await sql`DELETE FROM content_patches WHERE id = ${target.id}`;
+    return res.status(200).json({ ok: true, migrated: 0, remaining: meta.n - 1, done: meta.n - 1 === 0, skipped: 1 });
+  }
+  const mime = m[1];
+  const buffer = Buffer.from(m[2], "base64");
+
+  const rows = await sql`
+    INSERT INTO assets (mime, data, size)
+    VALUES (${mime}, ${buffer}, ${buffer.length})
+    RETURNING id
+  `;
+  const assetId = rows[0].id;
+  await sql`
+    UPDATE content_patches
+    SET new_content = ${"/api/asset/" + assetId}, updated_at = NOW()
+    WHERE id = ${target.id}
+  `;
+
+  return res.status(200).json({
+    ok: true, migrated: 1, remaining: meta.n - 1, done: meta.n - 1 === 0,
+    replaced_bytes: raw.length, new_url: `/api/asset/${assetId}`,
+  });
+}
+
 // ---- Nav-menu order + hide flags -------------------------------------
 // The site's nav is a mix of hardcoded static routes and user-authored
 // dynamic pages. The admin can reorder BOTH and hide individual items.
@@ -1027,6 +1099,7 @@ const ROUTES = {
   "pages":          handlePages,
   "sections":       handleSections,
   "nav":            handleNav,
+  "migrate-patches":handleMigratePatches,
   "render-section": async function(req, res) {
     if (!(await requireAdmin(req, res))) return;
     if (req.method !== "POST") return res.status(405).json({ error: "POST only." });

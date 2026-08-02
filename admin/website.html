@@ -1096,6 +1096,25 @@
       bindSettingsModal();
       $("hidePageBtn").addEventListener("click", toggleCurrentPageHidden);
       loadTrash();
+      // Silently migrate legacy inline base64 patches to /api/asset URLs
+      // so the public /api/edits payload shrinks from MB to KB (kills
+      // flash-of-old-content on visitor page loads). One patch per call
+      // to stay under Vercel's 10s function cap; caps at 200 iterations
+      // as a safety net.
+      (async function migrateLegacyPatches() {
+        for (let i = 0; i < 200; i++) {
+          try {
+            const r = await AdminAPI.post("/api/admin/migrate-patches", {});
+            if (!r || r.done) {
+              if (i > 0) console.log("[sm-edit] migrated " + i + " legacy inline patch(es) → /api/asset URLs");
+              return;
+            }
+          } catch (err) {
+            console.warn("[sm-edit] migrate-patches:", err && err.message);
+            return;
+          }
+        }
+      })();
       // Open Home in the iframe by default so the editor lands on a page.
       openPage("/");
     })();
