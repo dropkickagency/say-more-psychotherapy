@@ -49,8 +49,16 @@ export default async function handler(req, res) {
     res.setHeader("Content-Length", buf.length);
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.statusCode = 200;
-    res.write(buf);
-    res.end();
+    // @vercel/node's res.send preserves Buffers as-is; res.end has been
+    // observed to JSON-stringify on this runtime. Prefer send when
+    // available, fall back to explicit stream pipe (never triggers the
+    // wrapper's auto-serialiser).
+    if (typeof res.send === "function") {
+      res.send(buf);
+      return;
+    }
+    const { Readable } = await import("node:stream");
+    Readable.from([buf]).pipe(res);
     return;
   } catch (err) {
     console.error("asset serve error:", err);
