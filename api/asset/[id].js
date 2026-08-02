@@ -52,13 +52,26 @@ export default async function handler(req) {
       return new Response("Bad id", { status: 400 });
     }
 
-    // TEMP: prove new code is running
-    if (urlObj.searchParams.get("hello") === "1") {
-      return new Response("edge-runtime-hello-" + id, { status: 200, headers: { "Content-Type": "text/plain" } });
-    }
-
     const rows = await sql`SELECT mime, data FROM assets WHERE id = ${id} LIMIT 1`;
     if (!rows.length) return new Response("Not found", { status: 404 });
+
+    // TEMP DEBUG: dump the shape Neon returns on Edge
+    if (urlObj.searchParams.get("shape") === "1") {
+      const raw = rows[0].data;
+      const proto = Object.prototype.toString.call(raw);
+      const info = {
+        typeof: typeof raw,
+        proto,
+        isU8: raw instanceof Uint8Array,
+        isArr: Array.isArray(raw),
+        constructorName: raw && raw.constructor && raw.constructor.name,
+        keys: raw && typeof raw === "object" ? Object.keys(raw).slice(0, 5) : null,
+        hasData: raw && "data" in raw,
+        dataIsArr: raw && Array.isArray(raw.data),
+        firstBytes: raw && Array.isArray(raw.data) ? raw.data.slice(0, 6) : (typeof raw === "string" ? raw.slice(0, 16) : null),
+      };
+      return new Response(JSON.stringify(info, null, 2), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+    }
 
     const row = rows[0];
     const mime = row.mime || "application/octet-stream";
