@@ -51,6 +51,26 @@
   function markDirty() {
     post({ type: "sm-edit-dirty", count: patches.size, history: history.length });
     updateToolbar();
+    scheduleAutoSave();
+  }
+
+  // Auto-save pending patches as DRAFTS shortly after the last edit.
+  // Without this, the local `patches` Map is lost the moment the iframe
+  // reloads (which happens whenever the user adds/moves/deletes a
+  // section) — so text/image tweaks that weren't manually saved would
+  // silently disappear. Drafts stay hidden from live visitors; the
+  // Publish button still promotes them explicitly.
+  var _autoSaveTimer = null;
+  function scheduleAutoSave() {
+    if (patches.size === 0) return;
+    if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+    _autoSaveTimer = setTimeout(function () {
+      _autoSaveTimer = null;
+      if (patches.size === 0) return;
+      saveAll(false).catch(function (err) {
+        console.warn("[sm-edit] auto-save failed:", err && err.message);
+      });
+    }, 800);
   }
 
   // Push a history entry. `prev` is the state before this edit; `next`
@@ -191,6 +211,8 @@
     if (!res.ok) throw new Error((json && json.error) || "Save failed");
     patches.clear();
     updateToolbar();
+    // Notify parent so the "N unsaved" pill clears after auto-save too.
+    post({ type: "sm-edit-saved", saved: json.saved || 0, promoted: json.promoted || 0, published: !!publish, auto: true });
     return json;
   }
 
@@ -212,6 +234,18 @@
         var r2 = await saveAll(true);
         post({ type: "sm-edit-saved", saved: r2.saved || 0, promoted: r2.promoted || 0, published: true });
       } catch (err) { post({ type: "sm-edit-error", error: err.message }); }
+    }
+    // Parent asks the iframe to flush any pending edits BEFORE it reloads
+    // us (which would otherwise wipe the in-memory `patches` Map). Cancel
+    // any pending debounced auto-save and do it synchronously.
+    if (msg.type === "sm-edit-flush") {
+      if (_autoSaveTimer) { clearTimeout(_autoSaveTimer); _autoSaveTimer = null; }
+      try {
+        if (patches.size > 0) await saveAll(false);
+        post({ type: "sm-edit-flushed", ok: true, requestId: msg.requestId || null });
+      } catch (err) {
+        post({ type: "sm-edit-flushed", ok: false, error: err.message, requestId: msg.requestId || null });
+      }
     }
     if (msg.type === "sm-edit-discard") {
       if (patches.size === 0) return;

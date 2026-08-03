@@ -619,7 +619,7 @@
           closeSettingsModal();
           flashStatus("Settings saved", "good");
           // Meta description is baked into the rendered HTML — reload iframe
-          reloadIframe();
+          safeReload();
         } catch (err) {
           $("ps_error").textContent = err.message; $("ps_error").classList.remove("hidden");
         } finally {
@@ -722,7 +722,7 @@
               });
             }
             closeSectionModal();
-            reloadIframe();
+            safeReload();
             flashStatus(
               ctx.staticMode
                 ? "Section added as a draft — click Publish to make it live"
@@ -804,6 +804,39 @@
       }
     }
 
+    // Ask the iframe to flush pending in-memory edits (auto-save any
+    // patches the user just made) before we blow away its window.
+    // Awaits an sm-edit-flushed reply so section actions don't race
+    // ahead of the save. Times out after 2s so a stuck iframe never
+    // blocks the toolbar.
+    function flushIframe() {
+      return new Promise((resolve) => {
+        const iframe = $("previewFrame");
+        if (!iframe || !iframe.contentWindow) return resolve();
+        if (state.dirty === 0) return resolve();
+        const rid = "flush-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
+        const timer = setTimeout(() => {
+          window.removeEventListener("message", listener);
+          resolve();
+        }, 2000);
+        function listener(e) {
+          const d = e.data || {};
+          if (d.type === "sm-edit-flushed" && d.requestId === rid) {
+            clearTimeout(timer);
+            window.removeEventListener("message", listener);
+            resolve();
+          }
+        }
+        window.addEventListener("message", listener);
+        try { iframe.contentWindow.postMessage({ type: "sm-edit-flush", requestId: rid }, "*"); } catch (e) { clearTimeout(timer); resolve(); }
+      });
+    }
+    // Reload helper that first flushes pending edits, then reloads.
+    async function safeReload() {
+      await flushIframe();
+      reloadIframe();
+    }
+
     // ---- Message handlers from edit-mode.js (structural actions) ----
     function bindSectionMessages() {
       window.addEventListener("message", async (e) => {
@@ -836,7 +869,7 @@
                 new_content: direction,
               }],
             });
-            reloadIframe();
+            safeReload();
             flashStatus("Section moved " + direction + " — click Publish to make it live", "good");
           } catch (err) {
             flashStatus("Move failed: " + err.message, "bad");
@@ -853,7 +886,7 @@
           try {
             if (d.action === "delete") {
               await AdminAPI.del("/api/admin/edits?id=" + encodeURIComponent(patchId));
-              reloadIframe();
+              safeReload();
               flashStatus("Section deleted", "good");
             } else if (d.action === "duplicate") {
               // Fetch patches, find the one we're duplicating, and re-save
@@ -873,7 +906,7 @@
                   new_content: orig.new_content,
                 }],
               });
-              reloadIframe();
+              safeReload();
               flashStatus("Section duplicated as draft — click Publish to make it live", "good");
             }
           } catch (err) {
@@ -908,11 +941,11 @@
               // Star-colour changes are cosmetic — keep the current DOM so
               // any in-flight text edits aren't lost. Reload only if the
               // iframe explicitly wants it.
-              if (d.reload) reloadIframe();
+              if (d.reload) safeReload();
               flashStatus("Section updated", "good");
               return;
             }
-            reloadIframe();
+            safeReload();
           } catch (err) {
             flashStatus("Section action failed: " + err.message, "bad");
           }
