@@ -54,23 +54,32 @@
     scheduleAutoSave();
   }
 
-  // Auto-save pending patches as DRAFTS shortly after the last edit.
+  // Auto-save pending patches as DRAFTS immediately after each edit.
   // Without this, the local `patches` Map is lost the moment the iframe
   // reloads (which happens whenever the user adds/moves/deletes a
   // section) — so text/image tweaks that weren't manually saved would
   // silently disappear. Drafts stay hidden from live visitors; the
   // Publish button still promotes them explicitly.
-  var _autoSaveTimer = null;
-  function scheduleAutoSave() {
+  //
+  // No debounce: text edits already fire only on blur (natural pacing),
+  // and image swaps are one-per-file-pick. The Map guards against
+  // in-flight duplicate posts by only including entries present at
+  // send time.
+  var _autoSaving = false;
+  var _autoSavePending = false;
+  async function scheduleAutoSave() {
     if (patches.size === 0) return;
-    if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
-    _autoSaveTimer = setTimeout(function () {
-      _autoSaveTimer = null;
-      if (patches.size === 0) return;
-      saveAll(false).catch(function (err) {
-        console.warn("[sm-edit] auto-save failed:", err && err.message);
-      });
-    }, 800);
+    if (_autoSaving) { _autoSavePending = true; return; }
+    _autoSaving = true;
+    try {
+      await saveAll(false);
+      console.log("[sm-edit] auto-saved (draft)");
+    } catch (err) {
+      console.warn("[sm-edit] auto-save failed:", err && err.message);
+    } finally {
+      _autoSaving = false;
+      if (_autoSavePending) { _autoSavePending = false; scheduleAutoSave(); }
+    }
   }
 
   // Push a history entry. `prev` is the state before this edit; `next`
@@ -191,16 +200,15 @@
   //---------- Save handled via parent postMessage ----------
   async function saveAll(publish) {
     if (patches.size === 0 && !publish) return { ok: true, saved: 0 };
-    var payload = { page_path: window.location.pathname, patches: [], publish: !!publish };
-    if (publish) payload.publish_all = true;
-    patches.forEach(function (p, key) {
-      payload.patches.push({
-        element_path: key,
-        element_type: p.element_type,
-        new_content: p.new_content,
-        original: p.original,
-      });
+    // Snapshot the keys we're about to send so we only clear THOSE after
+    // the network round-trip. Otherwise edits that arrive during the
+    // save would be wiped from the Map before they got sent.
+    var sending = Array.from(patches.entries()).map(function (kv) {
+      var key = kv[0], p = kv[1];
+      return { element_path: key, element_type: p.element_type, new_content: p.new_content, original: p.original };
     });
+    var payload = { page_path: window.location.pathname, patches: sending, publish: !!publish };
+    if (publish) payload.publish_all = true;
     var res = await fetch("/api/admin/edits", {
       method: "POST",
       credentials: "same-origin",
@@ -209,7 +217,9 @@
     });
     var json = await res.json();
     if (!res.ok) throw new Error((json && json.error) || "Save failed");
-    patches.clear();
+    // Only delete keys we actually sent; leaves any brand-new edits
+    // (added during the in-flight save) queued for the next save.
+    sending.forEach(function (s) { patches.delete(s.element_path); });
     updateToolbar();
     // Notify parent so the "N unsaved" pill clears after auto-save too.
     post({ type: "sm-edit-saved", saved: json.saved || 0, promoted: json.promoted || 0, published: !!publish, auto: true });
@@ -236,12 +246,25 @@
       } catch (err) { post({ type: "sm-edit-error", error: err.message }); }
     }
     // Parent asks the iframe to flush any pending edits BEFORE it reloads
-    // us (which would otherwise wipe the in-memory `patches` Map). Cancel
-    // any pending debounced auto-save and do it synchronously.
+    // us (which would otherwise wipe the in-memory `patches` Map).
     if (msg.type === "sm-edit-flush") {
-      if (_autoSaveTimer) { clearTimeout(_autoSaveTimer); _autoSaveTimer = null; }
+      // If a contentEditable is still active (user was mid-type), blur
+      // it so its finish() handler runs and stashes the text into the
+      // Map before we serialise.
+      try {
+        var ae = document.activeElement;
+        if (ae && ae.getAttribute && ae.getAttribute("contenteditable") === "true") {
+          ae.blur();
+          // Yield a tick so blur handlers actually run before we read
+          // patches.size.
+          await new Promise(function (r) { setTimeout(r, 0); });
+        }
+      } catch (e) {}
       try {
         if (patches.size > 0) await saveAll(false);
+        // Wait for any in-flight auto-save to finish so we don't leave
+        // patches half-committed.
+        while (_autoSaving) await new Promise(function (r) { setTimeout(r, 30); });
         post({ type: "sm-edit-flushed", ok: true, requestId: msg.requestId || null });
       } catch (err) {
         post({ type: "sm-edit-flushed", ok: false, error: err.message, requestId: msg.requestId || null });

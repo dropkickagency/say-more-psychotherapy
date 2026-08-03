@@ -813,12 +813,15 @@
       return new Promise((resolve) => {
         const iframe = $("previewFrame");
         if (!iframe || !iframe.contentWindow) return resolve();
-        if (state.dirty === 0) return resolve();
+        // Always ask the iframe to flush — parent's `state.dirty` is
+        // updated via async postMessage, so a fresh in-progress edit
+        // (typed but not yet auto-saved) can leave state.dirty at 0 in
+        // the parent while the iframe actually has pending patches.
         const rid = "flush-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
         const timer = setTimeout(() => {
           window.removeEventListener("message", listener);
           resolve();
-        }, 2000);
+        }, 3000);
         function listener(e) {
           const d = e.data || {};
           if (d.type === "sm-edit-flushed" && d.requestId === rid) {
