@@ -55,31 +55,15 @@
   }
 
   // Auto-save pending patches as DRAFTS immediately after each edit.
-  // Without this, the local `patches` Map is lost the moment the iframe
-  // reloads (which happens whenever the user adds/moves/deletes a
-  // section) — so text/image tweaks that weren't manually saved would
-  // silently disappear. Drafts stay hidden from live visitors; the
-  // Publish button still promotes them explicitly.
-  //
-  // No debounce: text edits already fire only on blur (natural pacing),
-  // and image swaps are one-per-file-pick. The Map guards against
-  // in-flight duplicate posts by only including entries present at
-  // send time.
+  // saveAll's own mutex (_autoSaving) prevents parallel POSTs — this
+  // helper just kicks the queue and never awaits, so markDirty stays
+  // synchronous for the caller.
   var _autoSaving = false;
-  var _autoSavePending = false;
-  async function scheduleAutoSave() {
+  function scheduleAutoSave() {
     if (patches.size === 0) return;
-    if (_autoSaving) { _autoSavePending = true; return; }
-    _autoSaving = true;
-    try {
-      await saveAll(false);
-      console.log("[sm-edit] auto-saved (draft)");
-    } catch (err) {
+    saveAll(false).catch(function (err) {
       console.warn("[sm-edit] auto-save failed:", err && err.message);
-    } finally {
-      _autoSaving = false;
-      if (_autoSavePending) { _autoSavePending = false; scheduleAutoSave(); }
-    }
+    });
   }
 
   // Push a history entry. `prev` is the state before this edit; `next`
@@ -198,32 +182,44 @@
   }
 
   //---------- Save handled via parent postMessage ----------
+  // saveAll uses the _autoSaving mutex so ONLY ONE save runs at a
+  // time — critical when the parent's flush handler and the auto-save
+  // timer could both try to fire simultaneously. Two parallel saves
+  // with the same OLD nth-of-type paths would race the server-side
+  // section-shift remap and leave duplicate rows in the DB (one at
+  // the remapped path, one at the stale path) — which is why previous
+  // section edits would revert when a new section was added.
   async function saveAll(publish) {
     if (patches.size === 0 && !publish) return { ok: true, saved: 0 };
-    // Snapshot the keys we're about to send so we only clear THOSE after
-    // the network round-trip. Otherwise edits that arrive during the
-    // save would be wiped from the Map before they got sent.
-    var sending = Array.from(patches.entries()).map(function (kv) {
-      var key = kv[0], p = kv[1];
-      return { element_path: key, element_type: p.element_type, new_content: p.new_content, original: p.original };
-    });
-    var payload = { page_path: window.location.pathname, patches: sending, publish: !!publish };
-    if (publish) payload.publish_all = true;
-    var res = await fetch("/api/admin/edits", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    var json = await res.json();
-    if (!res.ok) throw new Error((json && json.error) || "Save failed");
-    // Only delete keys we actually sent; leaves any brand-new edits
-    // (added during the in-flight save) queued for the next save.
-    sending.forEach(function (s) { patches.delete(s.element_path); });
-    updateToolbar();
-    // Notify parent so the "N unsaved" pill clears after auto-save too.
-    post({ type: "sm-edit-saved", saved: json.saved || 0, promoted: json.promoted || 0, published: !!publish, auto: true });
-    return json;
+    // Wait for any in-flight save to finish before starting a new one.
+    while (_autoSaving) { await new Promise(function (r) { setTimeout(r, 20); }); }
+    if (patches.size === 0 && !publish) return { ok: true, saved: 0 };
+    _autoSaving = true;
+    try {
+      var sending = Array.from(patches.entries()).map(function (kv) {
+        var key = kv[0], p = kv[1];
+        return { element_path: key, element_type: p.element_type, new_content: p.new_content, original: p.original };
+      });
+      var payload = { page_path: window.location.pathname, patches: sending, publish: !!publish };
+      if (publish) payload.publish_all = true;
+      var res = await fetch("/api/admin/edits", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      var json = await res.json();
+      if (!res.ok) throw new Error((json && json.error) || "Save failed");
+      // Only delete keys we actually sent; leaves any brand-new edits
+      // (added during the in-flight save) queued for the next save.
+      sending.forEach(function (s) { patches.delete(s.element_path); });
+      updateToolbar();
+      // Notify parent so the "N unsaved" pill clears after auto-save too.
+      post({ type: "sm-edit-saved", saved: json.saved || 0, promoted: json.promoted || 0, published: !!publish, auto: true });
+      return json;
+    } finally {
+      _autoSaving = false;
+    }
   }
 
   window.addEventListener("message", async function (e) {
@@ -248,23 +244,22 @@
     // Parent asks the iframe to flush any pending edits BEFORE it reloads
     // us (which would otherwise wipe the in-memory `patches` Map).
     if (msg.type === "sm-edit-flush") {
-      // If a contentEditable is still active (user was mid-type), blur
-      // it so its finish() handler runs and stashes the text into the
-      // Map before we serialise.
       try {
+        // Blur any active contentEditable so its finish() handler
+        // stashes the text into the Map before we serialise.
         var ae = document.activeElement;
         if (ae && ae.getAttribute && ae.getAttribute("contenteditable") === "true") {
           ae.blur();
-          // Yield a tick so blur handlers actually run before we read
-          // patches.size.
           await new Promise(function (r) { setTimeout(r, 0); });
         }
       } catch (e) {}
       try {
+        // Drain any in-flight save first.
+        while (_autoSaving) await new Promise(function (r) { setTimeout(r, 20); });
+        // Then save whatever remains — saveAll's own mutex will still
+        // serialise if a new edit slipped in after the blur.
         if (patches.size > 0) await saveAll(false);
-        // Wait for any in-flight auto-save to finish so we don't leave
-        // patches half-committed.
-        while (_autoSaving) await new Promise(function (r) { setTimeout(r, 30); });
+        while (_autoSaving) await new Promise(function (r) { setTimeout(r, 20); });
         post({ type: "sm-edit-flushed", ok: true, requestId: msg.requestId || null });
       } catch (err) {
         post({ type: "sm-edit-flushed", ok: false, error: err.message, requestId: msg.requestId || null });
