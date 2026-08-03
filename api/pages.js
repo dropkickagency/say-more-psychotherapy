@@ -40,7 +40,7 @@ function buildOrdered(customRows, cfg) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store, must-revalidate");
+  res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60, stale-while-revalidate=120");
   try {
     if (!sql) return res.status(200).json({ items: STATIC_NAV, pages: [] });
     await ensureSchema();

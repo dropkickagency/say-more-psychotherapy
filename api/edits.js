@@ -24,8 +24,13 @@ export default async function handler(req, res) {
       ORDER BY created_at ASC, id ASC
     `;
 
-    // No edge cache — Publish should show up on the site immediately.
-    res.setHeader("Cache-Control", "no-store, must-revalidate");
+    // Short edge cache to protect Postgres bandwidth. Vercel serves
+    // cached responses to bursts of visitors instead of hitting the DB
+    // for every page load. Stale-while-revalidate lets the CDN serve a
+    // slightly stale copy while it refreshes in the background — new
+    // Publish rolls out within ~30s. Combined with immutable /api/asset
+    // caching, most public traffic now bypasses Postgres entirely.
+    res.setHeader("Cache-Control", "public, max-age=30, s-maxage=30, stale-while-revalidate=60");
     return res.status(200).json({ patches: rows });
   } catch (err) {
     console.warn("edits list error:", err && err.message);
