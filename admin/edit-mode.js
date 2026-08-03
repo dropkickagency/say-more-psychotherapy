@@ -49,9 +49,84 @@
   function post(msg) { try { window.parent.postMessage(msg, "*"); } catch (e) {} }
 
   function markDirty() {
-    post({ type: "sm-edit-dirty", count: patches.size, history: history.length });
+    post({ type: "sm-edit-dirty", count: patches.size + _pendingSectionSaves.size, history: history.length });
     updateToolbar();
     scheduleAutoSave();
+    flushSectionSaves();
+  }
+
+  // ---------- Dynamic-page section save (workaround) ----------
+  // On dynamic pages, DOM edits inside a .sm-section are saved as the
+  // section's own html_override in the JSONB (via /api/admin/sections
+  // update-content). This sidesteps the entire content_patches path-
+  // shifting problem: the HTML travels with the section object, so
+  // insert / move / delete just moves it as a unit and previous edits
+  // never revert. Static pages continue to use content_patches.
+  var _pendingSectionSaves = new Map();   // index -> latest html
+  var _sectionSaveTimer = null;
+  var _sectionSaveInFlight = false;
+
+  function sectionIndexOf(el) {
+    if (!window.__SM_DYNAMIC_PAGE__ || !el) return -1;
+    var wrapper = el.closest ? el.closest(".sm-section") : null;
+    if (!wrapper) return -1;
+    var idx = Number(wrapper.getAttribute("data-section-index"));
+    return Number.isFinite(idx) ? idx : -1;
+  }
+
+  function captureSectionHtml(idx) {
+    var wrapper = document.querySelector('.sm-section[data-section-index="' + idx + '"]');
+    if (!wrapper) return null;
+    var clone = wrapper.cloneNode(true);
+    // Strip editor-only markup so it doesn't leak into the live HTML
+    clone.querySelectorAll(".sm-image-edit-btn, .sm-video-edit-btn, .sm-bg-edit-chip, .sm-section-toolbar, .sm-star-slot, .sm-faq-delete, .sm-faq-add, .sm-section-inserter").forEach(function (n) { n.remove(); });
+    clone.querySelectorAll("[contenteditable]").forEach(function (n) { n.removeAttribute("contenteditable"); });
+    clone.querySelectorAll("[data-sm-inserted], [data-sm-static], [data-sm-patch-id], [data-sm-faq-decorated]").forEach(function (n) {
+      n.removeAttribute("data-sm-inserted");
+      n.removeAttribute("data-sm-static");
+      n.removeAttribute("data-sm-patch-id");
+      n.removeAttribute("data-sm-faq-decorated");
+    });
+    // sm-* helper classes that only styled edit-mode overlays
+    var stripClasses = ["sm-editable-text","sm-editable-image","sm-editable-video","sm-editable-bg","sm-editing","sm-uploading","sm-faq-list","sm-testimonial-section"];
+    clone.querySelectorAll("*").forEach(function (n) {
+      if (!n.classList || !n.classList.length) return;
+      stripClasses.forEach(function (c) { n.classList.remove(c); });
+      if (n.classList.length === 0) n.removeAttribute("class");
+    });
+    // Return just the inner content — the sm-section wrapper is added
+    // fresh by the server renderer on next load.
+    return clone.innerHTML;
+  }
+
+  function queueSectionSave(idx) {
+    if (!Number.isFinite(idx) || idx < 0) return;
+    var html = captureSectionHtml(idx);
+    if (html == null) return;
+    _pendingSectionSaves.set(idx, html);
+  }
+
+  async function flushSectionSaves() {
+    if (_sectionSaveInFlight || _pendingSectionSaves.size === 0) return;
+    _sectionSaveInFlight = true;
+    try {
+      while (_pendingSectionSaves.size > 0) {
+        var entry = _pendingSectionSaves.entries().next().value;
+        var idx = entry[0], html = entry[1];
+        _pendingSectionSaves.delete(idx);
+        try {
+          await fetch("/api/admin/sections?slug=" + encodeURIComponent(window.location.pathname.replace(/^\//, "")), {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "update-content", index: idx, content: { html_override: html } }),
+          });
+        } catch (err) {
+          console.warn("[sm-edit] section save failed:", err && err.message);
+        }
+      }
+    } finally {
+      _sectionSaveInFlight = false;
+    }
   }
 
   // Auto-save pending patches as DRAFTS immediately after each edit.
@@ -260,6 +335,12 @@
         // serialise if a new edit slipped in after the blur.
         if (patches.size > 0) await saveAll(false);
         while (_autoSaving) await new Promise(function (r) { setTimeout(r, 20); });
+        // Drain the dynamic-page section-save queue too.
+        await flushSectionSaves();
+        while (_sectionSaveInFlight || _pendingSectionSaves.size > 0) {
+          if (!_sectionSaveInFlight) await flushSectionSaves();
+          await new Promise(function (r) { setTimeout(r, 20); });
+        }
         post({ type: "sm-edit-flushed", ok: true, requestId: msg.requestId || null });
       } catch (err) {
         post({ type: "sm-edit-flushed", ok: false, error: err.message, requestId: msg.requestId || null });
@@ -318,8 +399,16 @@
       if (el.innerHTML !== original) {
         var path = elementPath(el);
         var existing = patches.get(path);
-        var origSnapshot = existing ? existing.original : original;  // never lose the first-ever original
-        patches.set(path, { element_type: "text", new_content: el.innerHTML, original: origSnapshot });
+        var origSnapshot = existing ? existing.original : original;
+        // Dynamic-page workaround: save the whole section HTML instead
+        // of a nth-of-type content_patch (which breaks on section
+        // insert/move/delete). Static pages continue with patches.
+        var idx = sectionIndexOf(el);
+        if (idx >= 0) {
+          queueSectionSave(idx);
+        } else {
+          patches.set(path, { element_type: "text", new_content: el.innerHTML, original: origSnapshot });
+        }
         pushHistory({ element_path: path, element_type: "text", prev: original, next: el.innerHTML, origSnapshot: origSnapshot });
         markDirty();
       }
@@ -400,7 +489,9 @@
       var path = elementPath(video);
       var existing = patches.get(path);
       var origSnapshot = existing ? existing.original : wasSrc;
-      patches.set(path, { element_type: "video", new_content: url, original: origSnapshot });
+      var idx = sectionIndexOf(video);
+      if (idx >= 0) queueSectionSave(idx);
+      else patches.set(path, { element_type: "video", new_content: url, original: origSnapshot });
       pushHistory({ element_path: path, element_type: "video", prev: wasSrc, next: url, origSnapshot: origSnapshot });
       markDirty();
     }).catch(function (err) {
@@ -418,7 +509,9 @@
       var path = elementPath(el);
       var existing = patches.get(path);
       var origSnapshot = existing ? existing.original : wasSrc;
-      patches.set(path, { element_type: "image", new_content: url, original: origSnapshot });
+      var idx = sectionIndexOf(el);
+      if (idx >= 0) queueSectionSave(idx);
+      else patches.set(path, { element_type: "image", new_content: url, original: origSnapshot });
       pushHistory({ element_path: path, element_type: "image", prev: wasSrc, next: url, origSnapshot: origSnapshot });
       markDirty();
     }).catch(function (err) {
@@ -464,7 +557,9 @@
       var path = elementPath(el);
       var existing = patches.get(path);
       var origSnapshot = existing ? existing.original : was;
-      patches.set(path, { element_type: "bg-image", new_content: url, original: origSnapshot });
+      var idx = sectionIndexOf(el);
+      if (idx >= 0) queueSectionSave(idx);
+      else patches.set(path, { element_type: "bg-image", new_content: url, original: origSnapshot });
       pushHistory({ element_path: path, element_type: "bg-image", prev: was, next: nextCss, origSnapshot: origSnapshot });
       markDirty();
     }).catch(function (err) {
