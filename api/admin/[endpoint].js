@@ -879,6 +879,60 @@ async function handlePages(req, res) {
 // Read / mutate the sections array on a dynamic page. Used by the
 // section-library picker (insert), the section-toolbar (up / down /
 // duplicate / delete), and any bulk reorder in the future.
+// Compute an oldIndex → newIndex | null mapping for a section
+// structural change. null = section was deleted. Used to rewrite
+// content_patch element_paths so dynamic-page text/image edits track
+// the right section across inserts, moves, duplicates, and deletes.
+function computeShiftMap(oldLen, action, params) {
+  const map = new Array(oldLen);
+  if (action === "insert") {
+    const k = params.idx;
+    for (let i = 0; i < oldLen; i++) map[i] = i < k ? i : i + 1;
+  } else if (action === "delete") {
+    const k = params.from;
+    for (let i = 0; i < oldLen; i++) map[i] = i < k ? i : i === k ? null : i - 1;
+  } else if (action === "duplicate") {
+    const k = params.from;
+    for (let i = 0; i < oldLen; i++) map[i] = i <= k ? i : i + 1;
+  } else if (action === "move") {
+    const a = params.from, b = params.to;
+    for (let i = 0; i < oldLen; i++) {
+      if (i === a) map[i] = b;
+      else if (a < b) map[i] = (i > a && i <= b) ? i - 1 : i;
+      else if (a > b) map[i] = (i >= b && i < a) ? i + 1 : i;
+      else map[i] = i;
+    }
+  }
+  return map;
+}
+
+// Rewrite element_paths on content_patches that target the section
+// wrappers on a dynamic page. Pattern:
+//   body > main:nth-of-type(1) > div:nth-of-type(N) > …
+// After a structural change the section that USED to be at
+// nth-of-type(N) may now be at nth-of-type(map[N-1]+1), or gone
+// entirely. Rewrites or deletes accordingly.
+async function remapDynamicPagePatches(pagePath, shiftMap) {
+  if (!shiftMap || !shiftMap.length) return;
+  const patches = await sql`SELECT id, element_path FROM content_patches WHERE page_path = ${pagePath}`;
+  const RE = /^(body > main:nth-of-type\(1\) > div:nth-of-type\()(\d+)(\))/;
+  for (const p of patches) {
+    const m = String(p.element_path || "").match(RE);
+    if (!m) continue;
+    const oldIdx = parseInt(m[2], 10) - 1;
+    const newIdx = shiftMap[oldIdx];
+    if (newIdx === undefined) continue;
+    if (newIdx === null) {
+      await sql`DELETE FROM content_patches WHERE id = ${p.id}`;
+      continue;
+    }
+    if (newIdx === oldIdx) continue;
+    const rest = p.element_path.slice(m[0].length);
+    const newPath = m[1] + (newIdx + 1) + m[3] + rest;
+    await sql`UPDATE content_patches SET element_path = ${newPath}, updated_at = NOW() WHERE id = ${p.id}`;
+  }
+}
+
 async function handleSections(req, res) {
   if (!(await requireAdmin(req, res))) return;
   if (!assertDb(res)) return;
@@ -891,6 +945,9 @@ async function handleSections(req, res) {
   const [page] = await sql`SELECT id, slug, sections FROM pages WHERE slug = ${slug} AND deleted_at IS NULL LIMIT 1`;
   if (!page) return res.status(404).json({ error: "Page not found." });
   const sections = Array.isArray(page.sections) ? page.sections.slice() : [];
+  const oldLen = sections.length;
+  const pagePath = "/" + slug;
+  let shiftMap = null;
 
   if (req.method === "GET") {
     return res.status(200).json({ slug, sections });
@@ -906,6 +963,7 @@ async function handleSections(req, res) {
     // { action: "insert", index: N, section: {type, variant, content} }
     if (!body.section || !body.section.type) return res.status(400).json({ error: "section.type required" });
     sections.splice(idx, 0, body.section);
+    shiftMap = computeShiftMap(oldLen, "insert", { idx });
   } else if (action === "move") {
     // { action: "move", from: A, to: B }
     const from = Number(body.from);
@@ -916,15 +974,18 @@ async function handleSections(req, res) {
     const boundedTo = Math.max(0, Math.min(sections.length - 1, to));
     const [item] = sections.splice(from, 1);
     sections.splice(boundedTo, 0, item);
+    shiftMap = computeShiftMap(oldLen, "move", { from, to: boundedTo });
   } else if (action === "duplicate") {
     const from = Number(body.index);
     if (!Number.isFinite(from) || from < 0 || from >= sections.length) return res.status(400).json({ error: "invalid index" });
     const copy = JSON.parse(JSON.stringify(sections[from]));
     sections.splice(from + 1, 0, copy);
+    shiftMap = computeShiftMap(oldLen, "duplicate", { from });
   } else if (action === "delete") {
     const from = Number(body.index);
     if (!Number.isFinite(from) || from < 0 || from >= sections.length) return res.status(400).json({ error: "invalid index" });
     sections.splice(from, 1);
+    shiftMap = computeShiftMap(oldLen, "delete", { from });
   } else if (action === "replace") {
     // Bulk replace (used for content edits saved via section renderer)
     if (!Array.isArray(body.sections)) return res.status(400).json({ error: "sections array required" });
@@ -946,6 +1007,14 @@ async function handleSections(req, res) {
   }
 
   await sql`UPDATE pages SET sections = ${JSON.stringify(sections)}::jsonb, updated_at = NOW() WHERE id = ${page.id}`;
+  // Structural change on a dynamic page shifts the nth-of-type slot
+  // that section-relative content patches target. Rewrite affected
+  // element_paths so text/image edits track the right section instead
+  // of reverting to the default when the user adds/moves/deletes.
+  if (shiftMap) {
+    try { await remapDynamicPagePatches(pagePath, shiftMap); }
+    catch (err) { console.warn("remapDynamicPagePatches:", err && err.message); }
+  }
   return res.status(200).json({ ok: true, sections });
 }
 

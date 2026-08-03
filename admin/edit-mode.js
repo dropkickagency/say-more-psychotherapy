@@ -854,11 +854,12 @@
 
   function decorateFaqs() {
     faqContainers().forEach(function (list) {
-      if (list.dataset.smFaqDecorated === "1") return;
-      list.dataset.smFaqDecorated = "1";
+      // Idempotent per-item — no list-level guard. That guard used to
+      // skip re-decoration entirely, so newly-added questions never got
+      // a delete button. Now we check per element.
       list.classList.add("sm-faq-list");
 
-      // Per-item delete
+      // Per-item delete (add only if missing)
       list.querySelectorAll(":scope > details").forEach(function (item) {
         if (item.querySelector(":scope > .sm-faq-delete")) return;
         var btn = document.createElement("button");
@@ -877,7 +878,8 @@
         item.appendChild(btn);
       });
 
-      // "+ Add question" pill
+      // "+ Add question" pill — skip if already there
+      if (list.querySelector(":scope > .sm-faq-add")) return;
       var addBtn = document.createElement("button");
       addBtn.type = "button";
       addBtn.className = "sm-faq-add";
