@@ -129,6 +129,32 @@ async function handleLeads(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // Manual lead entry — used to recover leads that came in while the
+  // DB was down (Resend email delivered, but INSERT INTO leads was
+  // silently swallowed in booking.js). Admin types details from the
+  // Resend email into a modal, we insert here. Optional `created_at`
+  // lets the admin backdate the row to when the email actually arrived.
+  if (req.method === "POST") {
+    const body = parseBody(req);
+    const name = String(body.name || "").trim();
+    if (!name) return res.status(400).json({ error: "Name is required." });
+    const created = body.created_at ? new Date(body.created_at) : new Date();
+    const createdIso = isNaN(created.getTime()) ? new Date().toISOString() : created.toISOString();
+    const rows = await sql`
+      INSERT INTO leads (
+        name, email, phone, service, "when", note, source_page, source, status,
+        created_at, updated_at
+      ) VALUES (
+        ${name}, ${body.email || null}, ${body.phone || null}, ${body.service || null},
+        ${body.when || null}, ${body.note || null}, ${body.source_page || null},
+        ${body.source || "manual"}, ${body.status || "new"},
+        ${createdIso}, ${createdIso}
+      )
+      RETURNING id
+    `;
+    return res.status(200).json({ ok: true, id: rows[0].id });
+  }
+
   if (req.method === "DELETE") {
     const id = req.query && req.query.id;
     if (!id) return res.status(400).json({ error: "id required" });

@@ -202,7 +202,41 @@ export default async function handler(req, res) {
         `;
       }
     } catch (dbErr) {
-      console.warn("Lead DB insert failed (non-fatal):", dbErr && dbErr.message ? dbErr.message : dbErr);
+      const errMsg = dbErr && dbErr.message ? dbErr.message : String(dbErr);
+      console.warn("Lead DB insert failed (non-fatal):", errMsg);
+      // Neon-blocked or DB-down cases used to fail silently — client got
+      // a green tick, admin got the normal email, but the row never
+      // hit the leads table. Send a LOUD follow-up so the admin knows
+      // to copy the lead into the "+ Add lead manually" form in the
+      // admin dashboard when the DB comes back.
+      try {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: TO_EMAIL,
+          subject: `[ACTION REQUIRED] Lead NOT saved to database — ${name}`,
+          html: `
+            <div style="font-family: system-ui, sans-serif; max-width: 620px; margin: 0 auto; color: #141110;">
+              <h2 style="color: #b23a3a;">Database save failed for this lead</h2>
+              <p>The lead below was received and the notification email was delivered, but the row could NOT be written to the leads database.</p>
+              <p><strong>Reason:</strong> <code>${escapeHtml(errMsg)}</code></p>
+              <p><strong>What to do:</strong> once the database is back, add this lead manually via the admin dashboard → Leads → "+ Add lead" button.</p>
+              <hr style="border:none; border-top: 1px solid #E8E4DA; margin: 24px 0;">
+              <h3>Lead details</h3>
+              <table cellpadding="6" style="border-collapse: collapse;">
+                <tr><td><strong>Name</strong></td><td>${escapeHtml(name || "")}</td></tr>
+                <tr><td><strong>Email</strong></td><td>${escapeHtml(email || "")}</td></tr>
+                <tr><td><strong>Phone</strong></td><td>${escapeHtml(phone || "")}</td></tr>
+                <tr><td><strong>Service</strong></td><td>${escapeHtml(service || "")}</td></tr>
+                <tr><td><strong>When</strong></td><td>${escapeHtml(when || "")}</td></tr>
+                <tr><td><strong>Note</strong></td><td>${escapeHtml(note || "")}</td></tr>
+                <tr><td><strong>Page</strong></td><td>${escapeHtml(page || "")}</td></tr>
+              </table>
+            </div>
+          `,
+        });
+      } catch (alertErr) {
+        console.warn("Failed-save alert email also failed:", alertErr && alertErr.message);
+      }
     }
 
     return res.status(200).json({ ok: true });

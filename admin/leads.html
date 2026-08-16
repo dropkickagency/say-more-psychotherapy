@@ -116,17 +116,48 @@
         <div>
           <h1 class="admin__title">Leads <small>Booking-form submissions & inbound inquiries.</small></h1>
         </div>
-        <div class="range-picker">
-          <span class="range-picker__label">Range</span>
-          <select id="rangeSelect" aria-label="Time range">
-            <option value="1">Last 24 hours</option>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 3 months</option>
-            <option value="180">Last 6 months</option>
-            <option value="365">Last year</option>
-            <option value="0" selected>All time</option>
-          </select>
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn btn--sm" id="addLeadBtn" title="Manually add a lead (use when a booking-form submission came through email but wasn't saved to the DB)">+ Add lead</button>
+          <div class="range-picker">
+            <span class="range-picker__label">Range</span>
+            <select id="rangeSelect" aria-label="Time range">
+              <option value="1">Last 24 hours</option>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 3 months</option>
+              <option value="180">Last 6 months</option>
+              <option value="365">Last year</option>
+              <option value="0" selected>All time</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual-add modal — used to backfill leads that hit Resend but
+           weren't persisted (e.g. Neon was blocked when they came in). -->
+      <div id="addLeadModal" class="we-modal hidden" role="dialog" aria-modal="true" aria-labelledby="addLeadTitle">
+        <div class="we-modal__backdrop" data-close></div>
+        <div class="we-modal__card">
+          <div class="we-modal__head">
+            <h2 id="addLeadTitle">Add a lead manually</h2>
+            <button type="button" class="we-modal__close" data-close aria-label="Close">✕</button>
+          </div>
+          <div class="we-modal__body">
+            <p class="we-field__hint" style="margin-bottom:12px;">Copy the details from the Resend confirmation email. This is the recovery path for booking-form submissions that arrived while the database was unavailable.</p>
+            <div class="we-field"><label for="al_name">Name *</label><input id="al_name" type="text" required maxlength="120" /></div>
+            <div class="we-field"><label for="al_email">Email</label><input id="al_email" type="email" maxlength="200" /></div>
+            <div class="we-field"><label for="al_phone">Phone</label><input id="al_phone" type="tel" maxlength="40" /></div>
+            <div class="we-field"><label for="al_service">Service</label><input id="al_service" type="text" maxlength="120" /></div>
+            <div class="we-field"><label for="al_when">Preferred time</label><input id="al_when" type="text" maxlength="120" /></div>
+            <div class="we-field"><label for="al_note">Note</label><textarea id="al_note" rows="3" maxlength="2000"></textarea></div>
+            <div class="we-field"><label for="al_source_page">Submitted from page</label><input id="al_source_page" type="text" maxlength="120" placeholder="/consultation" /></div>
+            <div class="we-field"><label for="al_created_at">Received at</label><input id="al_created_at" type="datetime-local" /><div class="we-field__hint">Backdate to the timestamp on the Resend email so it sorts correctly.</div></div>
+            <div id="al_error" class="we-modal__error hidden"></div>
+          </div>
+          <div class="we-modal__foot">
+            <button type="button" class="btn btn--ghost btn--sm" data-close>Cancel</button>
+            <button type="button" class="btn btn--sm" id="al_saveBtn">Add lead</button>
+          </div>
         </div>
       </div>
 
@@ -387,8 +418,64 @@
         <dd>${bits.map(([k, v]) => `<div style="display:flex; gap: 8px; margin-bottom: 3px;"><span style="min-width: 130px; color: #7A6A5C; font-size: 12px;">${escapeHtml(k)}</span><span style="font-size: 13px; word-break: break-all;">${escapeHtml(v)}</span></div>`).join("")}</dd>`;
     }
 
+    // ---- Manual-add lead modal ----
+    function openAddLead() {
+      ["al_name","al_email","al_phone","al_service","al_when","al_note","al_source_page","al_created_at"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      document.getElementById("al_error").classList.add("hidden");
+      document.getElementById("addLeadModal").classList.remove("hidden");
+      setTimeout(() => document.getElementById("al_name").focus(), 20);
+    }
+    function closeAddLead() { document.getElementById("addLeadModal").classList.add("hidden"); }
+    function bindAddLead() {
+      document.getElementById("addLeadBtn").addEventListener("click", openAddLead);
+      document.querySelectorAll("#addLeadModal [data-close]").forEach(el => el.addEventListener("click", closeAddLead));
+      document.addEventListener("keydown", e => {
+        if (e.key === "Escape" && !document.getElementById("addLeadModal").classList.contains("hidden")) closeAddLead();
+      });
+      document.getElementById("al_saveBtn").addEventListener("click", async () => {
+        const err = document.getElementById("al_error");
+        err.classList.add("hidden");
+        const name = document.getElementById("al_name").value.trim();
+        if (!name) { err.textContent = "Name is required."; err.classList.remove("hidden"); return; }
+        const rawWhen = document.getElementById("al_created_at").value;
+        const payload = {
+          name,
+          email:       document.getElementById("al_email").value.trim()   || null,
+          phone:       document.getElementById("al_phone").value.trim()   || null,
+          service:     document.getElementById("al_service").value.trim() || null,
+          when:        document.getElementById("al_when").value.trim()    || null,
+          note:        document.getElementById("al_note").value.trim()    || null,
+          source_page: document.getElementById("al_source_page").value.trim() || null,
+          source:      "manual",
+          status:      "new",
+          created_at:  rawWhen ? new Date(rawWhen).toISOString() : null,
+        };
+        const btn = document.getElementById("al_saveBtn");
+        btn.disabled = true;
+        try {
+          await AdminAPI.post("/api/admin/leads", payload);
+          closeAddLead();
+          // Reload the list so the new one appears in the right place.
+          const data = await AdminAPI.get("/api/admin/leads");
+          state.leads = data.leads || [];
+          updateStats();
+          buildSourceFilters();
+          render();
+        } catch (e) {
+          err.textContent = e.message || "Failed to save.";
+          err.classList.remove("hidden");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
     (async () => {
       if (!(await requireSession())) return;
+      bindAddLead();
       const alertBox = document.getElementById("alert");
       try {
         const data = await AdminAPI.get("/api/admin/leads");
